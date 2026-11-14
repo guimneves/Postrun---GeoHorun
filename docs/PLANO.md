@@ -1,0 +1,120 @@
+# PostRun · GeoHorun — plano
+
+Módulo do Horun para o pós-corrida do **Rock-Eval 7S**: curvas, parâmetros no
+estilo GeoWorks, deconvolução, calibração, estudos e as ferramentas do artigo
+(JAAP). Gerado em 13/11/2026 pelo modelo de PostRun do Horun Core
+(`Prompt_Horun_PostRun.md`). Id no Core: `geohorun` (`/m/geohorun/`).
+
+## Decisões (13/11/2026)
+
+- **Repositório público.** Nunca entram: dados reais (`.B00` reais, planilhas,
+  bancos), nem arquivos do GeoWorks (ajuda, métodos `*_params.xrk7`,
+  `*_cursors.xml`, `standards.ini`, ábacos) — são da Vinci Technologies. O
+  GeoHorun **importa os métodos do GeoWorks instalado** no laboratório em tempo
+  de execução; o padrão embutido vem do livro do Rock-Eval e da literatura,
+  com referências.
+- **Renomear / mover / trocar amostra de análise vai para o GeoHorun.** O RE7S
+  expõe rotas internas para o que só ele sabe (amostra no carrossel, histórico,
+  biblioteca, nome duplicado) e lê as renomeações do GeoHorun.
+- Testes com `.B00` **sintéticos** (os testes do PostRun no RE7S usam 4 `.B00`
+  reais, versionados desde 27/08 — decidir à parte se saem do RE7S).
+- O RE7S mantém o PostRun até a troca ser conferida em produção; só então perde.
+
+## Fase 1 — Separação do RE7S (este repositório)
+
+Levantamento do PostRun no RE7S (13/11/2026):
+
+- Backend ~6.200 linhas: `routes_postrun.py` (1491), `routes_postrun_curves.py`
+  (464), `_deconv` (844), `_report` (456), `_study` (911), `_workflow` (436);
+  `modules/postrun_{b00,calc,calibration,composition,deconv,regression,scan,timebase}.py`.
+- Grupo renomear: `routes_analysis_rename.py` (559), `modules/analysis_rename.py`
+  (292), `modules/b00_sample.py` (95).
+- Frontend ~10.600 linhas: `PostRunPage.tsx` (2420), 19 `components/PostRun*.tsx`,
+  `api/postrun.ts`, `lib/postrun*.ts`, `hooks/usePostrunScan.ts`, modais de
+  renomear/mover/trocar amostra, `lib/componentMassPaste.ts`, seção do manual.
+- Tabelas: `PostrunRegion`, `PostrunCalibration`, `PostrunAnalysisMeta`,
+  `PostrunCurve`, `PostrunDeconvolution`, `PostrunDeconvReference`,
+  `PostrunStudy`, `PostrunB00Cache` (+ `AnalysisRename`, que vem junto).
+- 95 testes do PostRun + 39 do grupo renomear.
+
+Passos:
+
+1. **Backend portado** — módulos e rotas copiados; trocas: autenticação pela
+   identidade do Core (`created_by_id` → id/nome do usuário do Core), `settings`
+   próprios (modo Agente, raízes `jobs` e `data`), sem `User` local.
+2. **Leitura dos `.B00`** pelo Agente com as raízes `jobs` (leitura/movimento/
+   escrita) e `data` (`standard.ini`) — o mesmo Agente do PC do Rock-Eval passa
+   a atender também o GeoHorun.
+3. **Rotas internas entre RE7S e GeoHorun** (rede `horun-network`, token por
+   módulo): RE7S → posições no carrossel, nome duplicado, entrada de histórico,
+   amostras da biblioteca, padrões e valores de referência; GeoHorun →
+   renomeações feitas (para o histórico e os contadores do RE7S).
+4. **Frontend portado** — a página e os componentes do PostRun entram como as
+   abas do GeoHorun; o que é comum de PostRun (`postrun-core`) é usado onde já
+   cobre (lista, publicação no Resultados).
+5. **Testes** portados com `.B00` sintéticos (gerador no próprio repositório).
+6. **Migração dos dados**: script que copia as 8 tabelas + `AnalysisRename` do
+   Postgres do RE7S para o do GeoHorun, convertendo os ids de usuário.
+7. **Troca**: Core cadastra `geohorun`; conferido em produção, o RE7S remove o
+   PostRun (aba, rotas, tabelas ficam até o backup seguinte).
+
+Bug a corrigir na passagem: `analysis_rename.py:203-206` recria
+`PostrunAnalysisMeta` sem `file_mass_before_mg` e `component_masses` (perdidos
+ao renomear/mover).
+
+## Fase 2 — Artigo, prioridade 1 (F1–F5)
+
+Especificação completa: `docs/FERRAMENTAS_ARTIGO.md`. F1 recuperação por
+componente e total; F2 brancos de matriz, LOB/LOD/LOQ e ppm; F3 validação
+(calibração × validação, modo cego, RMSEP, viés, precisão intermediária por
+ANOVA, gráfico 1:1 com U95); F4 rastreabilidade e exclusões com motivo; F5
+exportação para publicação (vetorial/300 dpi, larguras JAAP, paleta fixa).
+
+## Fase 3 — GeoWorks, núcleo
+
+Do levantamento da ajuda e dos arquivos de configuração do GeoWorks (sem
+copiar nada deles):
+
+1. **Motor de fórmulas** — a mesma linguagem dos métodos e dos parâmetros do
+   usuário: operadores (`** * / + - < <= > >= == != && || ^^ ?:`), funções
+   (ABS, CLAMP, EXP, LN, LOG10, POW, SQRT, IF, NULL…), NULL que se propaga,
+   nomes normalizados (S3'CO → S3_CO).
+2. **Motor de cursores** — início/fim da rampa pela temperatura; cursores de
+   temperatura fixa, mínimo e máximo dentro de janelas; áreas entre limites;
+   `Cur_n_Temp/Val/Time` e `Surf_n`.
+3. **Parâmetros BulkRock** (padrão próprio a partir do livro/literatura):
+   S1, S2, S3, S3CO, S3'CO, S4, S5, Tmax (TpkS2 corrigido pelo padrão e pela
+   taxa), PC, RC, TOC, MinC, HI, OI, OICO, PI e enxofre.
+4. **Importar métodos do GeoWorks instalado** (BulkRock, Kerogen, Coal,
+   PureOil, Reservoir, GasShales, MultiHeatingRates, Blank) — arquivos lidos
+   da instalação, guardados no banco do módulo, nunca no repositório.
+5. **Calibração por padrão** — fator K por gás e ciclo (lei ganho ou linear,
+   R² e sigma), correção do Tmax pelo Tpeak do padrão, pontos com validade.
+6. **Edição de cursores** na curva (inicial × corrigido, validar/desfazer).
+7. **Relatório** por método (colunas básico/detalhado), exportação.
+8. **Diagramas** HI×OI, HI×Tmax e fator de forma, com as curvas de tipo de
+   querogênio importadas do GeoWorks instalado (ou da literatura), cor por
+   terceiro parâmetro, regressão.
+
+## Fase 4 — Artigo P2 (F6–F9) e GeoWorks P2
+
+Comparador de modelos e ablação; painel de interação na co-pirólise; robustez
+dos moldes (leave-one-run-out, comparação de lotes, incerteza do molde);
+diagnóstico de identificabilidade (bootstrap). Brancos e remoção de lama,
+comparação de análises sobrepostas.
+
+## Fase 5 — Artigo P3 (F10–F12) e GeoWorks avançado
+
+Ajuste conjunto de rampas e canais; componente "matéria orgânica natural";
+pacote de dados aberto. Cinética (distribuição discreta de energias de
+ativação, Kissinger), modelagem com histórico de soterramento, carbono do solo
+(percentis T10…T90, PARTYsoc), destilação simulada.
+
+## Pontos que precisam do livro do Rock-Eval / literatura
+
+Regras exatas de linha de base e numeração das áreas (confirmar com amostra
+conhecida); definição do fator de ganho por canal; origem dos coeficientes de
+enxofre, TR, coque, gás e Qsat (para citar); índices R/I e Cp (Sebag et al.
+2016); conversão TR → Ro na modelagem; algoritmo da cinética. Possíveis erros
+nos métodos do GeoWorks a conferir: índice do cursor do F2; sinal da correção
+de Tmax do método Coal; ciclo/cursores do GasShales.
