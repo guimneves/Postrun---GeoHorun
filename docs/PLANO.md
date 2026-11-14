@@ -71,7 +71,17 @@ Passos:
 7. **Troca**: Core cadastra `geohorun`; conferido em produção, o RE7S remove o
    PostRun (aba, rotas, tabelas ficam até o backup seguinte).
 
-Bug a corrigir na passagem: `analysis_rename.py:203-206` recria
+Andamento (13/11/2026, commit 1a20aa3):
+- ✅ 1 backend portado (deps pela identidade do Core, `re7s_link`, tabelas iguais às do RE7S);
+- ✅ 2 leitura dos `.B00` (local e pelo Agente, raízes `jobs`/`data`);
+- 🟡 3 lado do GeoHorun pronto (cliente + réplica com fila); **falta o lado do RE7S**
+  (rotas `/internal/geohorun/*` e o recebimento das réplicas);
+- ✅ 4 tela portada (abas Análises, Estudos, Deconvolução, Curvas, Relatório, Calibração);
+- ✅ 5 193 testes com `.B00` sintéticos (`tests/b00_factory.py`);
+- ⬜ 6 script de migração dos dados; ⬜ compose de produção (Postgres, backup,
+  porta do Agente); ⬜ 7 troca no Core e remoção do PostRun do RE7S.
+
+Bug a corrigir na passagem (✅ corrigido no GeoHorun; ⬜ ainda existe no RE7S): `analysis_rename.py:203-206` recria
 `PostrunAnalysisMeta` sem `file_mass_before_mg` e `component_masses` (perdidos
 ao renomear/mover).
 
