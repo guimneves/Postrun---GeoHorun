@@ -2,7 +2,7 @@
 
 As tabelas `Postrun*` e `AnalysisRename` vieram do RE7S (13/11/2026) com os
 MESMOS nomes e colunas — é o que deixa a migração dos dados do Postgres do
-RE7S ser uma cópia direta (`scripts/migrar_do_re7s.py`). As tabelas comuns de
+RE7S ser uma cópia direta (`app/scripts/migrar_do_re7s.py`). As tabelas comuns de
 todo PostRun (`postrun_file`, `postrun_run`...) ficam em `app/postrun_core`.
 
 `User`: cópia local de quem entrou pelo Core (id do Core + nome), só para as

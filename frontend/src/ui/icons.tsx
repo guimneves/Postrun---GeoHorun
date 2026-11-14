@@ -123,3 +123,11 @@ export const IconClose = (p: P) => (
     <path d="M6 6l12 12M18 6 6 18" />
   </Base>
 )
+/** Agente Horun: computador do equipamento. */
+export const IconAgent = (p: P) => (
+  <Base {...p}>
+    <rect x="3" y="4" width="18" height="12" rx="1.5" />
+    <path d="M8 20h8M12 16v4" />
+    <path d="m9 10 2 2 4-4" />
+  </Base>
+)

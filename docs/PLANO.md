@@ -71,15 +71,25 @@ Passos:
 7. **Troca**: Core cadastra `geohorun`; conferido em produção, o RE7S remove o
    PostRun (aba, rotas, tabelas ficam até o backup seguinte).
 
-Andamento (13/11/2026, commit 1a20aa3):
+Andamento (14/11/2026):
 - ✅ 1 backend portado (deps pela identidade do Core, `re7s_link`, tabelas iguais às do RE7S);
 - ✅ 2 leitura dos `.B00` (local e pelo Agente, raízes `jobs`/`data`);
-- 🟡 3 lado do GeoHorun pronto (cliente + réplica com fila); **falta o lado do RE7S**
-  (rotas `/internal/geohorun/*` e o recebimento das réplicas);
-- ✅ 4 tela portada (abas Análises, Estudos, Deconvolução, Curvas, Relatório, Calibração);
-- ✅ 5 193 testes com `.B00` sintéticos (`tests/b00_factory.py`);
-- ⬜ 6 script de migração dos dados; ⬜ compose de produção (Postgres, backup,
-  porta do Agente); ⬜ 7 troca no Core e remoção do PostRun do RE7S.
+- ✅ 3 rotas internas dos dois lados — no RE7S (commits dc05451, 925ee87):
+  `/internal/geohorun/*` com `RE7S_GEOHORUN_TOKEN` (sem token: 503, nunca 404),
+  réplica das renomeações gravada em `AnalysisRename` com o mesmo id, renomear/
+  mover/trocar amostra no RE7S responde 409 quando o token está ligado, e a
+  listagem dos `.B00` do carrossel saiu para `app/modules/b00_listing.py`;
+- ✅ 4 tela portada (abas Análises, Estudos, Deconvolução, Curvas, Relatório,
+  Calibração) e redesenhada; painel do Agente no cabeçalho (coordenação);
+- ✅ 5 testes com `.B00` sintéticos (`tests/b00_factory.py`);
+- ✅ 6 migração: `python -m app.scripts.migrar_do_re7s [--simular]`, pelos dados
+  exportados do RE7S (`/internal/geohorun/export/<tabela>`), tudo ou nada, mesmos
+  ids, usuários pelo id do Core. Conferido de ponta a ponta com uma cópia do
+  banco de teste do RE7S (39 regiões, 66 deconvoluções… iguais);
+- ✅ compose de produção (Postgres, backup, porta estreita 8003 do Agente) e
+  guia `docs/DEPLOY.md`;
+- ⬜ 7 no servidor: token nos dois `.env`, subir, migrar, cadastrar no Core,
+  enrolar o Agente, conferir — e só então retirar o PostRun do RE7S.
 
 Bug a corrigir na passagem (✅ corrigido no GeoHorun; ⬜ ainda existe no RE7S): `analysis_rename.py:203-206` recria
 `PostrunAnalysisMeta` sem `file_mass_before_mg` e `component_masses` (perdidos

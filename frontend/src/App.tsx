@@ -1,7 +1,9 @@
+import { useCallback, useState } from 'react'
 import { HorunFooter, ThemeProvider, ThemeToggle } from '@horun/design-system'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { PostRunPage } from './pages/PostRunPage'
-import { IconArrowLeft } from './ui/icons'
+import { AgentPanel } from './components/AgentPanel'
+import { IconAgent, IconArrowLeft } from './ui/icons'
 
 // PostRun · GeoHorun — Fase 1: o PostRun que estava no RE7S (docs/PLANO.md).
 export default function App() {
@@ -50,6 +52,8 @@ function BrandMark() {
 
 function AppHeader() {
   const { user } = useAuth()
+  const [agentOpen, setAgentOpen] = useState(false)
+  const closeAgent = useCallback(() => setAgentOpen(false), [])
   const initials = (user?.username ?? '?')
     .split(/[\s._-]+/)
     .filter(Boolean)
@@ -57,6 +61,7 @@ function AppHeader() {
     .map((s) => s[0]?.toUpperCase())
     .join('')
   return (
+    <>
     <header
       className="sticky top-0 z-30 border-b border-[var(--color-border)] backdrop-blur-md"
       style={{ background: 'var(--header-bg)' }}
@@ -99,9 +104,23 @@ function AppHeader() {
               </span>
             </div>
           )}
+          {user?.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => setAgentOpen(true)}
+              title="Agente Horun do PC do Rock-Eval: código de instalação e instalações conectadas"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text)] transition-colors hover:bg-[var(--color-bg-elevated)]"
+            >
+              <IconAgent size={15} />
+              <span className="hidden sm:inline">Agente</span>
+            </button>
+          )}
           <ThemeToggle />
         </div>
       </div>
     </header>
+    {/* fora do header: o desfoque dele prenderia o "fixed" do painel */}
+    {agentOpen && <AgentPanel agentMode={user?.agent_mode ?? false} onClose={closeAgent} />}
+    </>
   )
 }

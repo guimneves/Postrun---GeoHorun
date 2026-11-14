@@ -7,6 +7,10 @@ export interface Me {
   username: string
   role: 'admin' | 'user'
   level: number
+  /** arquivos pelo Agente Horun (produção) ou pasta local (desenvolvimento) */
+  agent_mode: boolean
+  /** rotas internas do RE7S configuradas */
+  re7s_linked: boolean
 }
 
 const AuthContext = createContext<{ user: Me | null; loading: boolean }>({ user: null, loading: true })

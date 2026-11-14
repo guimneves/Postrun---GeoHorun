@@ -6,6 +6,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import CurrentUser
+from app.core.config import settings
 from app.core.identity import HorunIdentity, get_identity
 from app.modules import re7s_link
 
@@ -14,7 +15,11 @@ router = APIRouter(tags=["sessão"])
 
 @router.get("/me")
 def me(user: CurrentUser, identity: HorunIdentity = Depends(get_identity)):
-    return {"username": user.username, "role": user.role.value, "level": identity.level}
+    return {
+        "username": user.username, "role": user.role.value, "level": identity.level,
+        # para a tela dizer de onde vêm os arquivos e se o RE7S está ligado
+        "agent_mode": settings.agent_mode, "re7s_linked": re7s_link.configured(),
+    }
 
 
 def _re7s(fn, *args):

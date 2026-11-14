@@ -34,3 +34,8 @@ postgres = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+# Só o pacote `app` vai para a instalação (tests/, sample_data/ e logs/
+# ficam de fora — sem isto o `pip install` recusa a pasta "plana").
+[tool.setuptools.packages.find]
+include = ["app*"]

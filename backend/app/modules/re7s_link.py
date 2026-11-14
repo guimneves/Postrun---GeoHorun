@@ -177,10 +177,15 @@ def standard(standard_id: int) -> SimpleNamespace | None:
 
 # ------------------------------------------------------- réplica das renomeações
 
-def _payload(record) -> dict:
-    def iso(dt):
-        return dt.isoformat() if dt else None
+def _payload(session: Session, record) -> dict:
+    from app.db.models import User
 
+    def iso(dt):
+        if dt is None:
+            return None
+        return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).isoformat()
+
+    user = session.get(User, record.renamed_by_id) if record.renamed_by_id else None
     return {
         "id": record.id, "old_token": record.old_token, "new_token": record.new_token,
         "old_analysis_name": record.old_analysis_name, "new_analysis_name": record.new_analysis_name,
@@ -188,13 +193,16 @@ def _payload(record) -> dict:
         "old_sample": record.old_sample, "new_sample": record.new_sample,
         "new_library_sample_id": record.new_library_sample_id, "status": record.status, "error": record.error,
         "created_at": iso(record.created_at), "completed_at": iso(record.completed_at),
+        # quem fez (identidade do Core) — o RE7S acha a conta correspondente
+        "renamed_by": user.username if user else None,
+        "renamed_by_core_user_id": user.core_user_id if user else None,
     }
 
 
 def replicate_rename(session: Session, record) -> None:
     """Põe a renomeação (estado atual) na fila para o RE7S e tenta enviar já.
     Chamar depois de cada commit que muda um AnalysisRename."""
-    item = RenameReplica(rename_id=record.id, payload_json=json.dumps(_payload(record)))
+    item = RenameReplica(rename_id=record.id, payload_json=json.dumps(_payload(session, record)))
     session.add(item)
     session.commit()
     _try_send(session, item)

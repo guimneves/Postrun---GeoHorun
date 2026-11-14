@@ -1,31 +1,111 @@
-# Compose para desenvolvimento/teste standalone deste módulo (sem o Horun
-# Core). Quando o módulo for "plugado" na plataforma de verdade, ele passa
-# a entrar na rede `horun-network` (criada pelo Core — ver
-# Prompt_Horun_Core.md, seção 9.2) e ganha `container_name`s previsíveis, sem
-# porta exposta ao host — ver Prompt_Horun_Core.md, seção 8, para o
-# encaixe da interface, e o exemplo real em `RE7S-Horun/docker-compose.yml`.
+# Produção: PostRun · GeoHorun plugado no Horun Core. Antes do primeiro
+# `docker compose up -d --build`:
+#   - a rede compartilhada já existe (criada uma vez pelo Core):
+#       docker network create horun-network
+#   - `.env` preenchido a partir do `.env.example` (nunca versionado);
+#   - o RE7S com RE7S_GEOHORUN_TOKEN igual ao RE7S_INTERNAL_TOKEN daqui.
+# Passo a passo completo (migração dos dados, Agente, Core): docs/DEPLOY.md.
+#
+# Portas: só a 8003 (porta estreita do Agente Horun — frontend/nginx.conf,
+# segundo server{}). O Core alcança "geohorun-backend:8000" e
+# "geohorun-frontend:80" pela horun-network; a identidade por cabeçalho só é
+# segura porque ninguém alcança o módulo sem passar pelo Core. Para rodar
+# sozinho, em DEV, use o docker-compose.dev.yml.
+
+# Nome fixo do projeto: sem ele, o Docker usa o NOME DA PASTA para nomear os
+# volumes — renomear a pasta faria o módulo abrir vazio.
+name: horun-geohorun
 
 services:
-  backend:
-    build: ./backend
+  geohorun-db:
+    image: postgres:16-alpine
+    container_name: geohorun-db
+    restart: unless-stopped
     environment:
-      # DEV_MODE = todo pedido é o usuário "admin" fixo, SEM login — por isso
-      # as portas só escutam na própria máquina (127.0.0.1)
-      HORUN_DEV_MODE: "true"
-    ports:
-      - "127.0.0.1:8000:8000"
+      POSTGRES_DB: geohorun
+      POSTGRES_USER: geohorun
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Volume nomeado: sobrevive a `docker compose down`/rebuild.
+      - geohorun_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geohorun -d geohorun"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Sem "ports:" — só os containers desta rede falam com o banco.
 
-  frontend:
+  db-backup:
+    # Dump ao subir e a cada BACKUP_INTERVAL_HOURS, verificado, com rotação de
+    # BACKUP_KEEP_DAYS dias, numa pasta FORA do Docker. Não há uploads: os
+    # .B00 ficam no PC do Rock-Eval (lidos pelo Agente).
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      geohorun-db:
+        condition: service_healthy
+    environment:
+      PGHOST: geohorun-db
+      PGUSER: geohorun
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: geohorun
+      BACKUP_PREFIX: geohorun
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./deploy/backup/pg_backup.sh:/pg_backup.sh:ro
+    entrypoint: ["/bin/sh", "/pg_backup.sh"]
+
+  geohorun-backend:
+    build: ./backend
+    container_name: geohorun-backend
+    restart: unless-stopped
+    depends_on:
+      geohorun-db:
+        condition: service_healthy
+    environment:
+      HORUN_DEV_MODE: "false"
+      MODULE_DATABASE_URL: postgresql+psycopg://geohorun:${POSTGRES_PASSWORD}@geohorun-db:5432/geohorun
+      # Arquivos do Rock-Eval pelo Agente Horun (pastas "jobs" e "data").
+      POSTRUN_AGENT_MODE: ${POSTRUN_AGENT_MODE:-true}
+      POSTRUN_AGENT_TASK_TIMEOUT: ${POSTRUN_AGENT_TASK_TIMEOUT:-30}
+      # Rotas internas do RE7S (fila, histórico, biblioteca, padrões; réplica
+      # das renomeações) — pela horun-network.
+      RE7S_INTERNAL_URL: ${RE7S_INTERNAL_URL:-http://re7s-backend:8000}
+      RE7S_INTERNAL_TOKEN: ${RE7S_INTERNAL_TOKEN}
+      # Envio dos resultados publicados ao Resultados — vazios = ficam na fila.
+      POSTRUN_RESULTADOS_URL: ${POSTRUN_RESULTADOS_URL:-}
+      POSTRUN_RESULTADOS_TOKEN: ${POSTRUN_RESULTADOS_TOKEN:-}
+      # Permissões por nível do Core (1 administrador … 5 IC).
+      POSTRUN_VALIDATE_MAX_LEVEL: ${POSTRUN_VALIDATE_MAX_LEVEL:-4}
+      POSTRUN_UNPUBLISH_MAX_LEVEL: ${POSTRUN_UNPUBLISH_MAX_LEVEL:-2}
+      GEOHORUN_ADMIN_MAX_LEVEL: ${GEOHORUN_ADMIN_MAX_LEVEL:-2}
+    networks:
+      - default
+      - horun-network
+
+  geohorun-frontend:
     build:
       context: ./frontend
       args:
-        # "/" serve standalone; quando plugado no Core, sobrescrever com
-        # "/m/geohorun/" (ver Prompt_Horun_Modulo.md, seção 6).
-        VITE_BASE: /
+        # Sub-caminho sob o qual o Core serve o módulo.
+        VITE_BASE: /m/geohorun/
+    container_name: geohorun-frontend
+    restart: unless-stopped
+    depends_on:
+      - geohorun-backend
+    networks:
+      - default
+      - horun-network
     ports:
-      - "127.0.0.1:8080:80"
+      # Só esta — a porta estreita do Agente (RE7S usa a 8001, Financeiro a
+      # 8002). A 80 fica só na horun-network, nunca exposta ao host.
+      - "8003:8003"
 
-# PRODUÇÃO (plugado no Core) — ver Prompt_Horun_Modulo.md, seção 9: sem
-# "ports:" nenhum, backend e frontend na horun-network com container_name
-# previsível, Postgres com volume nomeado e o serviço db-backup
-# (deploy/backup/pg_backup.sh).
+networks:
+  horun-network:
+    external: true
+
+volumes:
+  geohorun_pgdata:

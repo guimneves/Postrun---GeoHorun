@@ -1,0 +1,27 @@
+# Compose de DESENVOLVIMENTO standalone (sem o Horun Core), modo DEV, só em
+# 127.0.0.1 — uso:  docker compose -f docker-compose.dev.yml up --build
+# O de produção, plugado no Core, é o docker-compose.yml.
+
+services:
+  backend:
+    build: ./backend
+    environment:
+      # DEV_MODE = todo pedido é o usuário "admin" fixo, SEM login — por isso
+      # as portas só escutam na própria máquina (127.0.0.1)
+      HORUN_DEV_MODE: "true"
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      default:
+        # o nginx do frontend (porta do Agente) procura este nome
+        aliases: [geohorun-backend]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # "/" serve standalone; quando plugado no Core, sobrescrever com
+        # "/m/geohorun/" (ver Prompt_Horun_Modulo.md, seção 6).
+        VITE_BASE: /
+    ports:
+      - "127.0.0.1:8080:80"

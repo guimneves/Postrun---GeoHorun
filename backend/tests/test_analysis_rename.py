@@ -187,6 +187,8 @@ def test_rename_points_to_the_re7s_history_entry_and_is_replicated(admin_client,
     (sent,) = re7s.renames
     assert (sent["old_analysis_name"], sent["new_analysis_name"]) == (NAME, RENAMED)
     assert sent["history_entry_id"] == hid and sent["status"] == "done" and sent["new_job"] == JOB_STD
+    # quem fez vai junto (identidade do Core) — o RE7S acha a conta dele
+    assert (sent["renamed_by"], sent["renamed_by_core_user_id"]) == ("admin", "1")
 
 
 def test_new_name_cannot_collide_with_a_carousel_sample(admin_client, jobs, re7s):
