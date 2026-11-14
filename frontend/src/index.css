@@ -10,6 +10,12 @@
   --color-text-dim: #7a8299;
   --color-flame: #ff6a35;
   --color-status-ready: #1fa34a;
+  --color-border-strong: #c3cbe0;
+  --color-primary-soft: rgb(21 33 111 / 0.12);
+  --color-row-selected: rgb(21 33 111 / 0.06);
+  --shadow-xs: 0 1px 2px rgb(16 22 43 / 0.06);
+  --shadow-card: 0 1px 2px rgb(16 22 43 / 0.04), 0 4px 16px -6px rgb(16 22 43 / 0.08);
+  --header-bg: rgb(255 255 255 / 0.82);
 }
 
 [data-theme='dim'] {
@@ -19,6 +25,12 @@
   --color-text-dim: #8a93ad;
   --color-flame: #ff7d4d;
   --color-status-ready: #34c56f;
+  --color-border-strong: #4c5588;
+  --color-primary-soft: rgb(124 140 255 / 0.2);
+  --color-row-selected: rgb(124 140 255 / 0.1);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.15), 0 6px 18px -8px rgb(0 0 0 / 0.35);
+  --header-bg: rgb(35 42 71 / 0.85);
 }
 
 [data-theme='dark'] {
@@ -28,9 +40,38 @@
   --color-text-dim: #8d95ad;
   --color-flame: #ff8a5c;
   --color-status-ready: #2fbd65;
+  --color-border-strong: #343d6b;
+  --color-primary-soft: rgb(108 127 255 / 0.2);
+  --color-row-selected: rgb(108 127 255 / 0.1);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px -10px rgb(0 0 0 / 0.5);
+  --header-bg: rgb(18 22 43 / 0.85);
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'tnum' 0;
+}
+
+/* Caixas de seleção, rádios e faixas na cor do módulo. */
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'] {
+  accent-color: var(--color-primary);
+}
+input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+}
+
+::selection {
+  background: var(--color-primary-soft);
+}
+
+/* Barras de rolagem discretas (listas longas de análises). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
 }

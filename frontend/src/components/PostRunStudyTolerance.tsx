@@ -3,13 +3,7 @@ import { ApiError } from '../api/client'
 import { studyApi, type StudySensitivity } from '../api/postrun'
 import { PEAK_COLORS } from '../lib/postrunColors'
 import { PostRunLinesPlot, type LineSeries } from './PostRunLinesPlot'
-
-const btnPrimaryClass =
-  'rounded-lg border px-3 py-1.5 text-sm font-medium border-[var(--color-primary)] ' +
-  'bg-[var(--color-primary)] text-[var(--color-primary-contrast)] disabled:opacity-40'
-const inputClass =
-  'rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] ' +
-  'focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]'
+import { inputInlineClass as inputClass, btnPrimaryClass } from '../ui/classes'
 
 const f1 = (v: number | null | undefined) => (v === null || v === undefined ? '—' : v.toFixed(1))
 const signed = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(0)} %`)

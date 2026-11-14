@@ -9,11 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../api/client'
 import { libraryApi, type LibrarySampleOut, type SampleGroupOut } from '../api/library'
 import { postrunApi, type ChangeSampleItem, type ChangeSampleResult } from '../api/postrun'
-
-const inputClass =
-  'w-full rounded-lg border px-3 py-2 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
+import { inputLgClass as inputClass } from '../ui/classes'
 
 const STATUS_LABEL: Record<ChangeSampleItem['status'], string> = {
   planned: 'vai virar',

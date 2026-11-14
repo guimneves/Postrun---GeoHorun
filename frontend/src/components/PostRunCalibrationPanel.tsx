@@ -7,15 +7,7 @@ import type { StandardOut } from '../api/types'
 import { linearFit } from '../lib/postrunCalibrationFit'
 import { useJobAnalyses } from '../hooks/usePostrunScan'
 import { PostRunScanBar } from './PostRunScanBar'
-
-const inputClass =
-  'w-full rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
-
-const btnClass =
-  'rounded-lg border px-3 py-1.5 text-sm border-[var(--color-border)] ' +
-  'hover:bg-[var(--color-surface)] disabled:opacity-40'
+import { inputClass, btnClass } from '../ui/classes'
 
 interface PointDraft {
   token: string
@@ -239,7 +231,7 @@ export function PostRunCalibrationPanel({
   }
 
   return (
-    <div className="rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm">
           <span className="font-semibold">Calibração — {channelLabel}</span>{' '}

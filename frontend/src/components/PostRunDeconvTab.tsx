@@ -13,21 +13,13 @@ import {
 } from '../api/postrun'
 import { PostRunReferencesTab } from './PostRunReferencesTab'
 import { PostRunReportTab } from './PostRunReportTab'
+import { inputInlineClass as inputClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 // Aba Deconvolução do PostRun (pedido do usuário, 17/10/2026): molde,
 // referência, deconvolução, curvas e recuperação num lugar só, em 4
 // passos — cada um um botão, sobre as análises abertas (com a região de
 // cada uma, definida na aba Análises, e a composição dela). Gaussiana e
 // molde ficam salvos lado a lado: trocar o método não apaga o outro.
-
-const btnPrimaryClass =
-  'rounded-lg border px-3 py-1.5 text-sm font-medium border-[var(--color-primary)] ' +
-  'bg-[var(--color-primary)] text-[var(--color-primary-contrast)] disabled:opacity-40'
-const inputClass =
-  'rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
-const cardClass = 'rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]'
 
 function short(name: string): string {
   return name.replace(/\.B00$/i, '')

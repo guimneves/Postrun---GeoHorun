@@ -177,7 +177,7 @@ export function PostRunCurveViewer({
   const tempAt = (pos: number) => (pos >= 0 && pos < temp.length ? temp[pos].toFixed(0) : '—')
 
   return (
-    <div className="rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="font-semibold">{channelLabel}</span>
         <label className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">

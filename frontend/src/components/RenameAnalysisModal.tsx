@@ -7,11 +7,7 @@ import { useEffect, useState } from 'react'
 import { ApiError } from '../api/client'
 import { postrunApi, type AnalysisSummary, type RenameInfo, type RenameResult } from '../api/postrun'
 import { RockEvalNameHint } from './RockEvalNameHint'
-
-const inputClass =
-  'w-full rounded-lg border px-3 py-2 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
+import { inputLgClass as inputClass } from '../ui/classes'
 
 type Mode = 'extra' | 'full'
 

@@ -121,7 +121,7 @@ export function PostRunMultiPlot({
   if (!shown.length) return <p className="text-sm text-[var(--color-text-muted)]">Esta análise não tem {curve === 'pyro' ? 'pirólise' : 'oxidação'}.</p>
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="flex flex-col gap-3 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-semibold text-sm">{curve === 'pyro' ? 'Pirólise' : 'Oxidação'} · todos os sinais</span>
         <span className="text-[var(--color-text-muted)]">· {which === 'active' ? nameOf(activeToken) : `${shown.length} análises`}</span>

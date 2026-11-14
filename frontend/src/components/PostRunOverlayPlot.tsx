@@ -184,7 +184,7 @@ export function PostRunOverlayPlot({
     return <p className="text-sm text-[var(--color-text-muted)]">Nenhuma análise aberta tem {channelLabel}.</p>
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="flex flex-col gap-3 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-semibold text-sm">{channelLabel}</span>
         <span className="text-[var(--color-text-muted)]">· {items.length} análises · sem integração</span>

@@ -5,20 +5,12 @@ import { PostRunMassEdit } from './PostRunMassEdit'
 import { fmtNum } from '../lib/postrunFormat'
 import { PEAK_COLORS } from '../lib/postrunColors'
 import { PostRunLinesPlot, type LineSeries } from './PostRunLinesPlot'
+import { inputInlineClass as inputClass, btnClass, cardClass } from '../ui/classes'
 
 // Aba Referências do PostRun (pedido do usuário, 16/10/2026): ver o molde
 // de cada material puro junto com as corridas que o formaram, a "dilatação
 // natural" entre elas e comparar os moldes dos materiais — fora da aba
 // Análises, que estava poluída.
-
-const btnClass =
-  'rounded-lg border px-3 py-1.5 text-sm border-[var(--color-border)] ' +
-  'hover:bg-[var(--color-surface)] disabled:opacity-40'
-const inputClass =
-  'rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
-const cardClass = 'rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]'
 
 /** nome da análise sem a extensão (ex.: PP_60mg_001) */
 function runName(r: { filename: string; token: string }): string {

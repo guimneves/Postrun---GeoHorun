@@ -35,7 +35,7 @@ const btnPrimary =
   'rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--color-primary-contrast)] bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] disabled:opacity-40'
 const input =
   'rounded-lg border px-2 py-1.5 text-sm border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]'
-const card = 'rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]'
+const card = 'rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]'
 
 function errorText(err: unknown, fallback: string) {
   return err instanceof PostrunApiError ? err.message : fallback

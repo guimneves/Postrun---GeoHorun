@@ -63,7 +63,7 @@ export function PostRunPyrogramPlot({
     return <p className="text-sm text-[var(--color-text-muted)]">Esta análise não tem {title}.</p>
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="flex flex-col gap-2 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="font-semibold">{title}</span>
         <label className="ml-auto flex items-center gap-1 text-xs text-[var(--color-text-muted)]">

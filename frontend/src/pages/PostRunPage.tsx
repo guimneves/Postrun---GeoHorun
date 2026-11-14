@@ -40,19 +40,24 @@ import { PostRunPyrogramPlot } from '../components/PostRunPyrogramPlot'
 import { PEAK_COLORS } from '../lib/postrunColors'
 import { fmtNum } from '../lib/postrunFormat'
 import { isStdJob, useJobScan } from '../hooks/usePostrunScan'
-
-const inputClass =
-  'w-full rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
-
-const btnClass =
-  'rounded-lg border px-3 py-1.5 text-sm border-[var(--color-border)] ' +
-  'hover:bg-[var(--color-surface)] disabled:opacity-40'
-
-const btnPrimaryClass =
-  'rounded-lg border px-3 py-1.5 text-sm font-medium border-[var(--color-primary)] ' +
-  'bg-[var(--color-primary)] text-[var(--color-primary-contrast)] disabled:opacity-40'
+import { inputClass, inputInlineClass, btnClass, btnPrimaryClass, iconBtnClass, linkBtnClass } from '../ui/classes'
+import { Segmented } from '../ui/Segmented'
+import {
+  IconCalib,
+  IconChevron,
+  IconCurve,
+  IconDeconv,
+  IconEyeOff,
+  IconFolder,
+  IconIntegral,
+  IconPencil,
+  IconPyrogram,
+  IconReport,
+  IconSave,
+  IconSearch,
+  IconStudy,
+  IconUndo,
+} from '../ui/icons'
 
 const CHANNEL_LABELS: Record<string, string> = {
   FID: 'FID', CO: 'CO', CO2: 'CO₂', SO2: 'SO₂',
@@ -112,6 +117,14 @@ interface SummaryRow {
 
 function channelKey(curveName: 'pyro' | 'oxi', channel: string): string {
   return `${curveName}:${channel}`
+}
+
+/** Parte do nome da análise depois do código da amostra (réplica), para
+ * distinguir no workspace duas análises da mesma amostra. */
+function replicaTag(filename: string): string {
+  const base = filename.replace(/\.B00$/i, '')
+  const m = base.match(/[_ -]([^_ -]+)$/)
+  return m ? m[1] : base
 }
 
 function downloadCsv(filename: string, rows: (string | number)[][]) {
@@ -1172,55 +1185,63 @@ export function PostRunPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-lg font-semibold">PostRun</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Sinais brutos do Rock-Eval 7S, lidos direto dos <span className="font-mono">.B00</span> — trabalhe a
-          curva e a área de região por conta própria. Não calcula S1/S2/S3/Tmax/TOC/PI/HI/OI (isso continua no
-          GeoWorks).
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-full border p-1 text-sm border-[var(--color-border)]" role="tablist">
-          {(
-            [
-              ['analises', 'Análises'],
-              ['estudos', 'Estudos'],
-              ['deconv', 'Deconvolução'],
-              ['curvas', 'Curvas'],
-              ['relatorio', 'Relatório'],
-              ['calibracao', 'Calibração'],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={tab === value}
-              onClick={() => setTab(value)}
-              className="rounded-full px-4 py-1"
-              style={{
-                backgroundColor: tab === value ? 'var(--color-primary)' : 'transparent',
-                color: tab === value ? 'var(--color-primary-contrast)' : 'var(--color-text-muted)',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+      {/* Abas do módulo — fixas logo abaixo do cabeçalho */}
+      <div className="z-20 -mx-4 border-b md:sticky md:top-[55px] border-[var(--color-border)] bg-[var(--color-bg)] px-4 sm:-mx-6 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <nav className="-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label="seções do PostRun">
+            {(
+              [
+                ['analises', 'Análises', IconPyrogram],
+                ['estudos', 'Estudos', IconStudy],
+                ['deconv', 'Deconvolução', IconDeconv],
+                ['curvas', 'Curvas', IconCurve],
+                ['relatorio', 'Relatório', IconReport],
+                ['calibracao', 'Calibração', IconCalib],
+              ] as const
+            ).map(([value, label, Icon]) => {
+              const active = tab === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setTab(value)}
+                  className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
+                    active
+                      ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                      : 'border-transparent text-[var(--color-text-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]'
+                  }`}
+                >
+                  <Icon size={16} />
+                  {label}
+                </button>
+              )
+            })}
+          </nav>
+          {tab === 'analises' && (
+            <div className="flex items-center gap-3 py-2">
+              <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: unsavedCount > 0 ? 'var(--color-warning)' : 'var(--color-status-ready)' }}
+                  aria-hidden
+                />
+                {unsavedCount > 0 ? (
+                  `${unsavedCount} alteração(ões) não salva(s)`
+                ) : (
+                  <>
+                    Tudo salvo<span className="hidden lg:inline"> — nada é gravado até você tocar em Salvar</span>
+                  </>
+                )}
+              </span>
+              <button type="button" className={btnPrimaryClass} onClick={() => void saveAll()} disabled={busy || unsavedCount === 0}>
+                <IconSave size={15} />
+                Salvar
+              </button>
+            </div>
+          )}
         </div>
-        {tab === 'analises' && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--color-text-muted)]">
-              {unsavedCount > 0
-                ? `${unsavedCount} alteração(ões) não salva(s)`
-                : 'Nada é gravado até você tocar em Salvar.'}
-            </span>
-            <button type="button" className={btnPrimaryClass} onClick={() => void saveAll()} disabled={busy || unsavedCount === 0}>
-              Salvar
-            </button>
-          </div>
-        )}
       </div>
 
       {loadError && <p className="text-sm text-[var(--color-danger)]">{loadError}</p>}
@@ -1298,88 +1319,100 @@ export function PostRunPage() {
         />
       )}
 
-      <div className={tab === 'analises' ? 'grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr] 2xl:grid-cols-[420px_1fr]' : 'hidden'}>
+      <div className={tab === 'analises' ? 'grid grid-cols-1 gap-5 lg:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]' : 'hidden'}>
         {/* Navegador de análises */}
-        <div className="flex flex-col gap-2 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="flex flex-col gap-3 self-start rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 shadow-[var(--shadow-card)] lg:sticky lg:top-[120px]">
           {!job ? (
             <JobPicker jobs={jobsList} onChoose={chooseJob} onReload={reloadJobs} />
           ) : (
           <>
-          <div className="flex items-center gap-2">
-            <select
-              className={inputClass}
-              value={job}
-              onChange={(e) => chooseJob(e.target.value)}
-              title="trocar de job"
-            >
-              {(jobsList ?? []).map((j) => (
-                <option key={j.name} value={j.name}>
-                  {j.name} ({j.analyses})
-                </option>
-              ))}
-              {jobsList && !jobsList.some((j) => j.name === job) && <option value={job}>{job}</option>}
-            </select>
-            <button type="button" className={btnClass} onClick={() => chooseJob('')} title="voltar à lista de jobs">
-              Jobs
-            </button>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-dim)]">Job</span>
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <IconFolder size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)]" />
+                <select
+                  className={`${inputClass} pl-8 font-medium`}
+                  value={job}
+                  onChange={(e) => chooseJob(e.target.value)}
+                  title="trocar de job"
+                >
+                  {(jobsList ?? []).map((j) => (
+                    <option key={j.name} value={j.name}>
+                      {j.name} ({j.analyses})
+                    </option>
+                  ))}
+                  {jobsList && !jobsList.some((j) => j.name === job) && <option value={job}>{job}</option>}
+                </select>
+              </div>
+              <button type="button" className={btnClass} onClick={() => chooseJob('')} title="voltar à lista de jobs">
+                Todos
+              </button>
+            </div>
           </div>
           <PostRunScanBar status={scan.status} onRescan={scan.rescan} />
-          <input
-            className={inputClass}
-            placeholder="buscar amostra ou arquivo…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative">
+            <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)]" />
+            <input
+              className={`${inputClass} pl-8`}
+              placeholder="Buscar amostra ou arquivo…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-2 text-xs text-[var(--color-text-muted)]">
+            <span>Ordem</span>
             <select
               className={inputClass}
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             >
-              <option value="sample">Ordenar por amostra</option>
-              <option value="date">Ordenar por data</option>
-              <option value="analysis">Ordenar por análise</option>
-              <option value="mass">Ordenar por massa</option>
+              <option value="sample">por amostra</option>
+              <option value="date">por data</option>
+              <option value="analysis">por análise</option>
+              <option value="mass">por massa</option>
             </select>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-muted)] md:flex-nowrap">
             <span>Data</span>
-            <input type="date" className={`${inputClass} min-w-0 flex-1 basis-32`} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            <span>até</span>
-            <input type="date" className={`${inputClass} min-w-0 flex-1 basis-32`} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <div className="flex min-w-0 items-center gap-1.5">
+              <input type="date" className={`${inputClass} min-w-0 flex-1`} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="data inicial" />
+              <span>–</span>
+              <input type="date" className={`${inputClass} min-w-0 flex-1`} value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="data final" />
+            </div>
           </div>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--color-border)] pt-3 text-xs">
             <span className="text-[var(--color-text-muted)]">
-              {loadingAnalyses ? 'lendo as análises do job…' : `${visible.length} análise(s)`} ·{' '}
-              {openTokens.length} no workspace
+              {loadingAnalyses ? (
+                'lendo as análises do job…'
+              ) : (
+                <>
+                  <strong className="font-semibold text-[var(--color-text)]">{visible.length}</strong> análise(s) ·{' '}
+                  <strong className="font-semibold text-[var(--color-primary)]">{openTokens.length}</strong> no workspace
+                </>
+              )}
             </span>
-            <span className="flex gap-2">
+            <span className="flex gap-1">
               {hiddenTokens.size > 0 && (
-                <button
-                  type="button"
-                  className="text-[var(--color-primary)] hover:underline"
-                  onClick={() => setShowHidden((v) => !v)}
-                >
-                  {showHidden ? 'esconder ocultas' : `mostrar ocultas (${hiddenTokens.size})`}
+                <button type="button" className={linkBtnClass} onClick={() => setShowHidden((v) => !v)}>
+                  {showHidden ? 'esconder ocultas' : `ocultas (${hiddenTokens.size})`}
                 </button>
               )}
-              <button type="button" className="text-[var(--color-primary)] hover:underline" onClick={selectAllFiltered}>
-                selecionar todas
+              <button type="button" className={linkBtnClass} onClick={selectAllFiltered}>
+                marcar todas
               </button>
-              <button type="button" className="text-[var(--color-primary)] hover:underline" onClick={clearSelection}>
+              <button type="button" className={linkBtnClass} onClick={clearSelection}>
                 limpar
               </button>
             </span>
           </div>
           {isAdmin && openTokens.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-surface)] px-2 py-1.5 text-xs">
-              <span className="text-[var(--color-text-muted)]">
-                {openTokens.length} marcada{openTokens.length === 1 ? '' : 's'}
+            <div className="flex flex-col gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 text-xs">
+              <span className="font-medium text-[var(--color-text-muted)]">
+                {openTokens.length} marcada{openTokens.length === 1 ? '' : 's'} — ações de coordenação
               </span>
               <span className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className={btnClass}
+                  className={`${btnClass} text-xs`}
                   title="a amostra da biblioteca estava errada: troca o Sample= dentro do .B00 e o código no nome da análise"
                   onClick={() => setChangingSample([...openTokens])}
                 >
@@ -1387,47 +1420,36 @@ export function PostRunPage() {
                 </button>
                 <button
                   type="button"
-                  className={btnClass}
+                  className={`${btnClass} text-xs`}
                   title="move o .B00 e o .B00~ das análises marcadas para outro job"
                   onClick={() => setMovingBatch([...openTokens])}
                 >
-                  Mover marcadas para outro job…
+                  Mover para outro job…
                 </button>
               </span>
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex gap-1 rounded-full border p-0.5 border-[var(--color-border)]" role="tablist" aria-label="modo da lista">
-              {([
-                [false, 'Completa'],
-                [true, 'Simples'],
-              ] as const).map(([value, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="tab"
-                  aria-selected={compact === value}
-                  onClick={() => compact !== value && toggleCompact()}
-                  className="rounded-full px-2.5 py-0.5"
-                  style={{
-                    backgroundColor: compact === value ? 'var(--color-primary)' : 'transparent',
-                    color: compact === value ? 'var(--color-primary-contrast)' : 'var(--color-text-muted)',
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <span className="flex gap-2">
-              <button type="button" className="text-[var(--color-primary)] hover:underline" onClick={() => setCollapsed(new Set(groups.map(([g]) => g)))}>
-                colapsar amostras
+            <Segmented
+              size="xs"
+              ariaLabel="modo da lista"
+              value={compact}
+              onChange={() => toggleCompact()}
+              options={[
+                { value: false, label: 'Completa' },
+                { value: true, label: 'Simples' },
+              ]}
+            />
+            <span className="flex gap-1">
+              <button type="button" className={linkBtnClass} onClick={() => setCollapsed(new Set(groups.map(([g]) => g)))}>
+                recolher
               </button>
-              <button type="button" className="text-[var(--color-primary)] hover:underline" onClick={() => setCollapsed(new Set())}>
+              <button type="button" className={linkBtnClass} onClick={() => setCollapsed(new Set())}>
                 expandir
               </button>
             </span>
           </div>
-          <div className="max-h-[640px] overflow-y-auto">
+          <div className="-mx-4 -mb-4 max-h-[calc(100vh-430px)] overflow-y-auto rounded-b-2xl border-t border-[var(--color-border)]">
             {groups.map(([sample, items]) => {
               const tokens = items.map((i) => i.token)
               const allOpen = tokens.every((t) => openTokens.includes(t))
@@ -1435,20 +1457,20 @@ export function PostRunPage() {
               const isCollapsed = collapsed.has(sample)
               const openCount = tokens.filter((t) => openTokens.includes(t)).length
               return (
-                <div key={sample} className="border-t border-[var(--color-border)]">
+                <div key={sample}>
                   {/* 1.1 — seleção múltipla por amostra: um clique liga/desliga
                       todas as réplicas dessa amostra de uma vez; a seta colapsa */}
-                  <div className="flex items-center gap-1 bg-[var(--color-surface)] px-1 py-1 text-xs font-semibold">
+                  <div className="sticky top-0 z-[1] flex items-center gap-1 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-xs font-semibold">
                     <button
                       type="button"
-                      className="w-5 shrink-0 text-[var(--color-text-dim)] hover:text-[var(--color-primary)]"
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--color-text-dim)] hover:text-[var(--color-primary)]"
                       onClick={() => toggleCollapsed(sample)}
                       aria-label={isCollapsed ? `expandir ${sample}` : `colapsar ${sample}`}
                       aria-expanded={!isCollapsed}
                     >
-                      {isCollapsed ? '▸' : '▾'}
+                      <IconChevron size={14} className={`transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
                     </button>
-                    <label className="flex flex-1 cursor-pointer items-center gap-2">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
                       <input
                         type="checkbox"
                         checked={allOpen}
@@ -1457,29 +1479,54 @@ export function PostRunPage() {
                         }}
                         onChange={() => toggleGroup(tokens)}
                       />
-                      {sample}
-                      <span className="font-normal text-[var(--color-text-dim)]">
-                        ({items.length}){openCount > 0 && !allOpen ? ` · ${openCount} no workspace` : ''}
+                      <span className="truncate text-[var(--color-text)]">{sample}</span>
+                      <span className="ml-auto shrink-0 rounded-full bg-[var(--color-bg-elevated)] px-1.5 py-px text-[10px] font-medium text-[var(--color-text-muted)] ring-1 ring-[var(--color-border)]">
+                        {openCount > 0 && !allOpen ? `${openCount}/` : ''}
+                        {items.length}
                       </span>
                     </label>
                   </div>
                   {!isCollapsed && items.map((a) => {
                     const hidden = hiddenTokens.has(a.token)
+                    const selected = openTokens.includes(a.token)
+                    const isActive = activeToken === a.token
+                    const rowClass = `group relative flex items-center gap-2 border-b border-[var(--color-border)] text-xs transition-colors ${
+                      selected ? 'bg-[var(--color-row-selected)]' : 'hover:bg-[var(--color-surface)]'
+                    }`
+                    const bar = selected && (
+                      <span
+                        className="absolute inset-y-0 left-0 w-[3px]"
+                        style={{ background: isActive ? 'var(--color-flame)' : 'var(--color-primary)' }}
+                        aria-hidden
+                      />
+                    )
+                    const hideBtn = (inline: boolean) => (
+                      <button
+                        type="button"
+                        title={hidden ? 'mostrar de novo' : 'ocultar da lista (não apaga o arquivo)'}
+                        aria-label={hidden ? 'mostrar de novo' : 'ocultar da lista'}
+                        className={`${iconBtnClass} hover:text-[var(--color-danger)] ${inline && !hidden ? 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100' : ''}`}
+                        onClick={() => toggleHidden(a.token)}
+                      >
+                        {hidden ? <IconUndo size={14} /> : <IconEyeOff size={14} />}
+                      </button>
+                    )
                     if (compact)
                       return (
                         <div
                           key={a.token}
-                          className="flex items-center gap-2 py-0.5 pl-6 pr-1 text-xs"
+                          className={`${rowClass} py-0.5 pl-8 pr-2`}
                           style={hidden ? { opacity: 0.45 } : undefined}
                           title={`${a.filename} · ${a.method_folder} · ${a.date ? new Date(a.date).toLocaleDateString('pt-BR') : '—'}`}
                         >
+                          {bar}
                           <input
                             type="checkbox"
                             className="cursor-pointer"
-                            checked={openTokens.includes(a.token)}
+                            checked={selected}
                             onChange={() => toggleOpen(a.token)}
                           />
-                          <span className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[var(--color-text-dim)]" onClick={() => toggleOpen(a.token)}>
+                          <span className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[var(--color-text-muted)]" onClick={() => toggleOpen(a.token)}>
                             {a.filename.replace(/\.B00$/i, '')}
                           </span>
                           <PostRunMassEdit
@@ -1491,74 +1538,78 @@ export function PostRunPage() {
                             onSaved={mergeAnalyses}
                             className="shrink-0 tabular-nums text-[var(--color-text)]"
                           />
-                          <button
-                            type="button"
-                            title={hidden ? 'mostrar de novo' : 'ocultar da lista (não apaga o arquivo)'}
-                            className="shrink-0 rounded px-1 text-[var(--color-text-dim)] hover:text-[var(--color-danger)]"
-                            onClick={() => toggleHidden(a.token)}
-                          >
-                            {hidden ? '↩' : '✕'}
-                          </button>
+                          {hideBtn(true)}
                         </div>
                       )
                     return (
                       <div
                         key={a.token}
-                        className="flex items-center gap-2 py-1 pl-4 text-xs"
+                        className={`${rowClass} py-2 pl-8 pr-2`}
                         style={hidden ? { opacity: 0.45 } : undefined}
                       >
+                        {bar}
                         <input
                           type="checkbox"
                           className="cursor-pointer"
-                          checked={openTokens.includes(a.token)}
+                          checked={selected}
                           onChange={() => toggleOpen(a.token)}
                         />
-                        <PostRunSparkline
-                          values={sparklines[a.token]}
-                          loading={!(a.token in sparklines)}
-                        />
-                        <span className="flex-1 cursor-pointer" onClick={() => toggleOpen(a.token)}>
-                          <span className="block font-mono text-[var(--color-text-dim)]">{a.filename}</span>
+                        <span
+                          className="cursor-pointer rounded-md bg-[var(--color-bg-elevated)] p-0.5 ring-1 ring-[var(--color-border)]"
+                          onClick={() => toggleOpen(a.token)}
+                        >
+                          <PostRunSparkline
+                            values={sparklines[a.token]}
+                            loading={!(a.token in sparklines)}
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleOpen(a.token)}>
+                          <span className="block truncate font-mono text-[11.5px] font-medium text-[var(--color-text)]" title={a.filename}>
+                            {a.filename.replace(/\.B00$/i, '')}
+                          </span>
                           {a.renamed_from && (
-                            <span className="block text-[10px] italic text-[var(--color-text-dim)]">
+                            <span className="block truncate text-[10px] italic text-[var(--color-text-dim)]">
                               renomeada de {a.renamed_from}
                             </span>
                           )}
-                          <span className="block text-[var(--color-text-dim)]">
-                            {a.method_folder} ·{' '}
-                            {a.date ? new Date(a.date).toLocaleDateString('pt-BR') : '—'} ·{' '}
+                          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[var(--color-text-dim)]">
+                            <span>{a.method_folder}</span>
+                            <span aria-hidden>·</span>
+                            <span>{a.date ? new Date(a.date).toLocaleDateString('pt-BR') : '—'}</span>
+                            <span aria-hidden>·</span>
                             <PostRunMassEdit
                               token={a.token}
                               massMg={a.mass_mg}
                               manual={a.mass_source === 'manual'}
                               fileMassMg={a.quantity_mg}
-                            originalMassMg={a.file_mass_before_mg}
+                              originalMassMg={a.file_mass_before_mg}
                               onSaved={mergeAnalyses}
-                              className="text-[var(--color-text)]"
+                              className="font-medium tabular-nums text-[var(--color-text)]"
                             />
                           </span>
                           {a.composition_text && a.composition && Object.keys(a.composition).length > 1 && (
                             <span className="block text-[10px] text-[var(--color-text-dim)]">{a.composition_text}</span>
                           )}
                         </span>
-                        {isAdmin && (
-                          <button
-                            type="button"
-                            title="renomear análise / mudar job (move o .B00 e o .B00~)"
-                            className="rounded px-1 text-[var(--color-text-dim)] hover:text-[var(--color-primary)]"
-                            onClick={() => setRenaming(a)}
-                          >
-                            ✎
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          title={hidden ? 'mostrar de novo' : 'ocultar da lista (não apaga o arquivo)'}
-                          className="rounded px-1 text-[var(--color-text-dim)] hover:text-[var(--color-danger)]"
-                          onClick={() => toggleHidden(a.token)}
+                        {/* ações da linha: aparecem por cima ao passar o mouse */}
+                        <span
+                          className={`absolute right-1.5 top-1.5 flex items-center rounded-lg bg-[var(--color-bg-elevated)] shadow-[var(--shadow-xs)] ring-1 ring-[var(--color-border)] transition-opacity focus-within:opacity-100 group-hover:opacity-100 ${
+                            hidden ? 'opacity-100' : 'opacity-0'
+                          }`}
                         >
-                          {hidden ? '↩' : '✕'}
-                        </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              title="renomear análise / mudar job (move o .B00 e o .B00~)"
+                              aria-label="renomear análise"
+                              className={`${iconBtnClass} hover:text-[var(--color-primary)]`}
+                              onClick={() => setRenaming(a)}
+                            >
+                              <IconPencil size={14} />
+                            </button>
+                          )}
+                          {hideBtn(false)}
+                        </span>
                       </div>
                     )
                   })}
@@ -1566,7 +1617,7 @@ export function PostRunPage() {
               )
             })}
             {visible.length === 0 && !loadingAnalyses && (
-              <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">Nenhuma análise encontrada.</p>
+              <p className="py-8 text-center text-xs text-[var(--color-text-muted)]">Nenhuma análise encontrada.</p>
             )}
           </div>
           </>
@@ -1574,29 +1625,49 @@ export function PostRunPage() {
         </div>
 
         {/* Workspace: análises abertas + visualizador de curva */}
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           {openTokens.length === 0 ? (
-            <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-[var(--color-text-muted)] border-[var(--color-border)]">
-              Marque uma ou mais análises à esquerda pra abrir no workspace.
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--color-border-strong)] px-6 py-16 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+                <IconPyrogram size={28} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text)]">Nenhuma análise aberta</p>
+                <p className="mt-1 max-w-sm text-xs text-[var(--color-text-muted)]">
+                  Marque uma ou mais análises na lista para ver o pirograma, sobrepor corridas ou integrar regiões.
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2 rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-              {openTokens.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setActiveToken(t)}
-                  className="rounded-lg border px-2.5 py-1 text-xs"
-                  style={{
-                    borderColor: activeToken === t ? 'var(--color-primary)' : 'var(--color-border)',
-                    backgroundColor: activeToken === t ? 'var(--color-primary)' : 'transparent',
-                    color: activeToken === t ? 'var(--color-primary-contrast)' : 'var(--color-text)',
-                  }}
-                >
-                  {details[t]?.sample ?? analyses.find((a) => a.token === t)?.sample ?? t}
-                  {detailErrors[t] && ' ⚠'}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-dim)]">
+                Workspace
+              </span>
+              {openTokens.map((t) => {
+                const a = analysesByToken[t]
+                const active = activeToken === t
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setActiveToken(t)}
+                    title={a?.filename ?? t}
+                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+                      active
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-contrast)] shadow-[var(--shadow-xs)]'
+                        : 'border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] hover:border-[var(--color-border-strong)]'
+                    }`}
+                  >
+                    <span className="font-semibold">{details[t]?.sample ?? a?.sample ?? t}</span>
+                    {a?.filename && (
+                      <span className={`font-mono text-[10.5px] ${active ? 'opacity-75' : 'text-[var(--color-text-dim)]'}`}>
+                        {replicaTag(a.filename)}
+                      </span>
+                    )}
+                    {detailErrors[t] && <span className="text-[var(--color-warning)]">⚠</span>}
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -1606,85 +1677,56 @@ export function PostRunPage() {
 
           {activeDetail && (
             <>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex gap-1 rounded-full border p-1 text-xs border-[var(--color-border)]">
-                  {(['pyro', 'oxi'] as const).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setActiveCurve(c)}
-                      disabled={c === 'pyro' ? !activeDetail.pyro : !activeDetail.oxi}
-                      className="rounded-full px-3 py-1 disabled:opacity-30"
-                      style={{
-                        backgroundColor: activeCurve === c ? 'var(--color-primary)' : 'transparent',
-                        color: activeCurve === c ? 'var(--color-primary-contrast)' : 'var(--color-text-muted)',
-                      }}
-                    >
-                      {c === 'pyro' ? 'Pirólise' : 'Oxidação'}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-1 rounded-full border p-1 text-xs border-[var(--color-border)]" role="tablist" aria-label="modo do gráfico">
-                  {(
-                    [
-                      ['pirograma', 'Pirograma'],
-                      ['sobrepor', `Sobrepor (${openTokens.length})`],
-                      ['multi', 'Multi'],
-                    ] as const
-                  ).map(([m, label]) => (
-                    <button
-                      key={m}
-                      type="button"
-                      role="tab"
-                      aria-selected={viewMode === m}
-                      onClick={() => setViewMode(m)}
-                      className="rounded-full px-3 py-1"
-                      title={
-                        m === 'sobrepor'
-                          ? 'todas as análises abertas no mesmo gráfico, sem integração'
-                          : m === 'multi'
-                            ? 'todos os sinais (FID, CO, CO₂, SO₂) juntos, cada um com a sua cor'
-                            : 'a análise ativa: tempo × intensidade'
-                      }
-                      style={{
-                        backgroundColor: viewMode === m ? 'var(--color-primary)' : 'transparent',
-                        color: viewMode === m ? 'var(--color-primary-contrast)' : 'var(--color-text-muted)',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-2 shadow-[var(--shadow-xs)]">
+                <Segmented
+                  ariaLabel="ciclo"
+                  value={activeCurve}
+                  onChange={setActiveCurve}
+                  options={[
+                    { value: 'pyro', label: 'Pirólise', disabled: !activeDetail.pyro },
+                    { value: 'oxi', label: 'Oxidação', disabled: !activeDetail.oxi },
+                  ]}
+                />
+                <span className="h-5 w-px bg-[var(--color-border)]" aria-hidden />
+                <Segmented
+                  ariaLabel="modo do gráfico"
+                  value={viewMode}
+                  onChange={setViewMode}
+                  options={[
+                    { value: 'pirograma', label: 'Pirograma', title: 'a análise ativa: tempo × intensidade' },
+                    {
+                      value: 'sobrepor',
+                      label: `Sobrepor (${openTokens.length})`,
+                      title: 'todas as análises abertas no mesmo gráfico, sem integração',
+                    },
+                    {
+                      value: 'multi',
+                      label: 'Multi',
+                      title: 'todos os sinais (FID, CO, CO₂, SO₂) juntos, cada um com a sua cor',
+                    },
+                  ]}
+                />
                 <button
                   type="button"
                   onClick={() => setViewMode(viewMode === 'integracao' ? 'pirograma' : 'integracao')}
-                  className="rounded-full border px-3 py-1 text-xs"
+                  className={viewMode === 'integracao' ? `${btnPrimaryClass} rounded-full text-xs` : `${btnClass} rounded-full text-xs`}
                   title="ferramenta de integração: região arrastável, deconvolução e calibração do canal"
-                  style={
-                    viewMode === 'integracao'
-                      ? { backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: 'var(--color-primary-contrast)' }
-                      : { borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }
-                  }
+                  aria-pressed={viewMode === 'integracao'}
                 >
-                  {viewMode === 'integracao' ? '✕ Fechar integração' : '∫ Integrar'}
+                  <IconIntegral size={14} />
+                  {viewMode === 'integracao' ? 'Fechar integração' : 'Integrar'}
                 </button>
-                <div className={viewMode === 'multi' ? 'hidden' : 'flex flex-wrap gap-1'}>
-                  {availableChannels.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setActiveChannel(c)}
-                      className={btnClass}
-                      style={
-                        activeChannel === c
-                          ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }
-                          : undefined
-                      }
-                    >
-                      {CHANNEL_LABELS[c] ?? c}
-                    </button>
-                  ))}
-                </div>
+                {viewMode !== 'multi' && (
+                  <>
+                    <span className="ml-auto text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-dim)]">Canal</span>
+                    <Segmented
+                      ariaLabel="canal"
+                      value={activeChannel}
+                      onChange={setActiveChannel}
+                      options={availableChannels.map((c) => ({ value: c, label: CHANNEL_LABELS[c] ?? c }))}
+                    />
+                  </>
+                )}
               </div>
 
               {viewMode === 'sobrepor' && (
@@ -1742,33 +1784,20 @@ export function PostRunPage() {
                     </label>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-1 rounded-full border p-1 text-sm self-start border-[var(--color-border)]" role="tablist">
-                    {(
-                      [
-                        ['regiao', '1 · Região'],
-                        ['deconv', '2 · Deconvolução'],
-                        ['calib', '3 · Calibração do canal'],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        role="tab"
-                        aria-selected={step === value}
-                        onClick={() => setStep(value)}
-                        className="rounded-full px-3 py-1"
-                        style={{
-                          backgroundColor: step === value ? 'var(--color-primary)' : 'transparent',
-                          color: step === value ? 'var(--color-primary-contrast)' : 'var(--color-text-muted)',
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <Segmented
+                    ariaLabel="etapa da integração"
+                    className="self-start"
+                    value={step}
+                    onChange={setStep}
+                    options={[
+                      { value: 'regiao', label: '1 · Região' },
+                      { value: 'deconv', label: '2 · Deconvolução' },
+                      { value: 'calib', label: '3 · Calibração do canal' },
+                    ]}
+                  />
 
                   {step === 'regiao' && (<>
-                  <div className="flex flex-wrap items-end gap-2 rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+                  <div className="flex flex-wrap items-end gap-2 rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
                     <label className="flex flex-col gap-1 text-xs text-[var(--color-text-muted)]">
                       Rótulo
                       <input
@@ -1846,7 +1875,7 @@ export function PostRunPage() {
                   </div>
 
                   {openTokens.length > 1 && (
-                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
                       <span className="text-xs text-[var(--color-text-muted)]">
                         Aplicar essa região (mesmo canal/faixa) em:
                       </span>
@@ -1957,7 +1986,7 @@ export function PostRunPage() {
 
       {/* Tabela resumo — todas as regiões definidas nas análises abertas */}
       {tab === 'analises' && viewMode === 'integracao' && step === 'regiao' && summary.length > 0 && (
-        <div className="rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold">Resumo das regiões</h2>
             <div className="flex flex-wrap items-center gap-2">
@@ -2078,7 +2107,7 @@ export function PostRunPage() {
       )}
 
       {tab === 'analises' && viewMode === 'integracao' && step === 'deconv' && gaussRows.length > 0 && (
-        <div className="rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="font-semibold">Gaussianas (amostras virtuais)</h2>
@@ -2268,7 +2297,7 @@ function CalibrationTab({
   const stdJobs = useMemo(() => (jobsList ?? []).filter((j) => isStdJob(j.name)).map((j) => j.name), [jobsList])
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+      <div className="flex flex-col gap-2 rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
         <p className="text-sm text-[var(--color-text-muted)]">
           Converte a área do FID (pirólise) em mg, com corridas de padrão certificado — igual o GeoWorks: cada corrida é
           revisada e aceita por você. Entram as corridas do job de padrões (STD) e, se quiser, as de outro job.
@@ -2321,18 +2350,21 @@ function JobPicker({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold">Escolha um job</span>
-        <button type="button" className="text-xs text-[var(--color-primary)] hover:underline" onClick={onReload}>
+        <button type="button" className={linkBtnClass} onClick={onReload}>
           atualizar
         </button>
       </div>
-      <input
-        className={inputClass}
-        placeholder="buscar job…"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        autoFocus
-      />
-      <div className="max-h-[640px] overflow-y-auto">
+      <div className="relative">
+        <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)]" />
+        <input
+          className={`${inputClass} pl-8`}
+          placeholder="Buscar job…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          autoFocus
+        />
+      </div>
+      <div className="-mx-4 -mb-4 max-h-[calc(100vh-300px)] overflow-y-auto border-t border-[var(--color-border)]">
         {jobs === null && (
           <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">listando os jobs…</p>
         )}
@@ -2341,9 +2373,10 @@ function JobPicker({
             key={j.name}
             type="button"
             onClick={() => onChoose(j.name)}
-            className="flex w-full items-center justify-between gap-2 border-t px-1 py-2 text-left text-sm border-[var(--color-border)] hover:bg-[var(--color-surface)]"
+            className="group flex w-full items-center gap-3 border-b border-[var(--color-border)] px-4 py-2.5 text-left text-sm transition-colors hover:bg-[var(--color-row-selected)]"
           >
-            <span className="truncate font-medium">{j.name}</span>
+            <IconFolder size={16} className="shrink-0 text-[var(--color-text-dim)] group-hover:text-[var(--color-primary)]" />
+            <span className="min-w-0 flex-1 truncate font-medium">{j.name}</span>
             <span className="shrink-0 text-xs text-[var(--color-text-dim)]">
               {j.analyses} análise{j.analyses === 1 ? '' : 's'}
               {j.last_date && <> · {j.last_date.split('-').reverse().join('/')}</>}
@@ -2357,7 +2390,6 @@ function JobPicker({
     </div>
   )
 }
-
 
 /** Seletor de estudo das abas Deconvolução, Curvas e Relatório (pedido do
  * usuário, 22/10/2026): abre tudo o que o estudo guarda, como um job. */
@@ -2379,10 +2411,13 @@ function StudyBar({
   const active = studies.find((s) => s.id === activeStudyId) ?? null
   const newOnes = active ? openCount - active.tokens.length : 0
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-sm border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-      <span className="text-xs text-[var(--color-text-muted)]">Estudo</span>
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2 text-sm shadow-[var(--shadow-xs)]">
+      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-dim)]">
+        <IconStudy size={14} />
+        Estudo
+      </span>
       <select
-        className="rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]"
+        className={`${inputInlineClass} min-w-[220px]`}
         value={activeStudyId ?? ''}
         onChange={(e) => onChoose(e.target.value ? Number(e.target.value) : null)}
       >
@@ -2401,7 +2436,7 @@ function StudyBar({
           {active.status === 'aberto' && (
             <button
               type="button"
-              className="rounded-lg border px-2 py-1 text-xs border-[var(--color-border)] hover:bg-[var(--color-surface)]"
+              className={`${btnClass} text-xs`}
               onClick={onCollect}
               title="guarda as análises abertas e as referências, moldes e curvas que elas usam"
             >
@@ -2412,7 +2447,7 @@ function StudyBar({
       ) : (
         <span className="text-xs text-[var(--color-text-muted)]">escolha um estudo para abrir tudo o que ele guarda</span>
       )}
-      <button type="button" className="ml-auto text-xs text-[var(--color-primary)] hover:underline" onClick={onGoToStudies}>
+      <button type="button" className={`${linkBtnClass} ml-auto`} onClick={onGoToStudies}>
         Estudos →
       </button>
     </div>

@@ -6,18 +6,7 @@ import { fmtMass, massTemplateCsv, parseComponentMasses } from '../lib/component
 import { parseMassNumber } from '../lib/weighingPaste'
 import { PostRunScatterPlot } from './PostRunScatterPlot'
 import { RecoveryBars, RecoveryKpis, groupsFromReport, recoveryColor } from './PostRunRecoveryViz'
-
-const inputClass =
-  'w-full rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
-const btnClass =
-  'rounded-lg border px-3 py-1.5 text-sm border-[var(--color-border)] ' +
-  'hover:bg-[var(--color-surface)] disabled:opacity-40'
-const btnPrimaryClass =
-  'rounded-lg border px-3 py-1.5 text-sm font-medium border-[var(--color-primary)] ' +
-  'bg-[var(--color-primary)] text-[var(--color-primary-contrast)] disabled:opacity-40'
-const cardClass = 'rounded-2xl border p-4 border-[var(--color-border)] bg-[var(--color-bg-elevated)]'
+import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 function stat(s: ReportStat, unit = '', digits = 1): string {
   if (s.mean === null) return '—'

@@ -15,14 +15,7 @@ import { PEAK_COLORS } from '../lib/postrunColors'
 import { PostRunLinesPlot, type LineSeries } from './PostRunLinesPlot'
 import { shapeSeriesOf } from '../lib/postrunShape'
 import { PostRunScatterPlot } from './PostRunScatterPlot'
-
-const inputClass =
-  'w-full rounded-lg border px-2 py-1 text-sm border-[var(--color-border)] ' +
-  'bg-[var(--color-bg)] text-[var(--color-text)] focus:outline-none ' +
-  'focus:ring-2 focus:ring-[var(--color-primary)]'
-const btnClass =
-  'rounded-lg border px-3 py-1.5 text-sm border-[var(--color-border)] ' +
-  'hover:bg-[var(--color-surface)] disabled:opacity-40'
+import { inputClass, btnClass } from '../ui/classes'
 
 export interface DeconvWindow {
   startIdx: number
@@ -231,7 +224,7 @@ export function PostRunDeconvPanel({
   }, [result])
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="flex flex-col gap-3 rounded-2xl border p-3 border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-sm font-semibold">Deconvolução — picos (amostras virtuais)</span>
         <span className="text-xs text-[var(--color-text-muted)]">
