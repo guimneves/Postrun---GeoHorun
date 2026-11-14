@@ -3,7 +3,7 @@
 Manifesto do módulo — referência para o administrador cadastrá-lo no Horun Core (ver `Prompt_Horun_Core.md`, seções 3 e 5).
 
 - **id**: `geohorun`
-- **nome público**: Horun · PostRun · GeoHorun
+- **nome público**: PostRun · GeoHorun
 - **descrição**: Pós-corrida do Rock-Eval 7S: curvas, parâmetros (GeoWorks), deconvolução, calibração e estudos
 - **ícone**: 📈
 - **tipo**: PostRun de equipamento (Prompt_Horun_PostRun.md)

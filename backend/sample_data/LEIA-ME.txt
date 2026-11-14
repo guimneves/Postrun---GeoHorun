@@ -1,2 +1,2 @@
-Dados SINTETICOS do equipamento de exemplo do modelo PostRun (gerados por script).
-Troque por arquivos do seu equipamento em desenvolvimento (POSTRUN_DATA_DIR). Nunca versione dados reais.
+Arquivos .B00 SINTETICOS (gerados por backend/tests/b00_factory.py, build_standard_tree).
+Servem para desenvolver sem o equipamento (POSTRUN_DATA_DIR). Nunca versione .B00 reais.

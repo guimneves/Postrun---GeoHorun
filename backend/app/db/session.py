@@ -69,6 +69,8 @@ def _run_migrations() -> None:
 
 def create_db_and_tables() -> None:
     # registrar os modelos antes do create_all
+    from app.db import models as _models  # noqa: F401
+    from app.modules import re7s_link as _re7s_link  # noqa: F401 — tabela da réplica
     from app.postrun_core import models as _postrun_models  # noqa: F401
 
     try:

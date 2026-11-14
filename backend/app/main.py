@@ -1,55 +1,75 @@
+"""PostRun · GeoHorun — pós-corrida do Rock-Eval 7S (docs/PLANO.md).
+
+Fase 1: as rotas do PostRun que estavam no RE7S, sob /api. As rotas comuns de
+todo PostRun (app/postrun_core: /api/postrun/runs, /scan, /batch...) usam os
+mesmos caminhos que o PostRun do RE7S já usava — entram quando a publicação
+no Resultados for ligada (Fase 3), num prefixo próprio.
+"""
+
 from __future__ import annotations
 
+import logging
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlmodel import Session
 
-from app.core.config import settings
-from app.core.identity import get_identity
-from app.db.session import create_db_and_tables, engine, get_session
-from app.equipment import EQUIPMENT
-from app.postrun_core.publish import DisabledPublisher, HttpPublisher, start_outbox_worker
-from app.postrun_core.routes import PostrunConfig, build_router
-from app.postrun_core.sources import AgentSource, LocalFolderSource
-
-source = AgentSource(EQUIPMENT.agent_root) if settings.agent_mode else LocalFolderSource(settings.data_dir)
-publisher = (
-    HttpPublisher(settings.resultados_url, settings.resultados_token)
-    if settings.resultados_url and settings.resultados_token
-    else DisabledPublisher()
+from app.api import (
+    routes_analysis_rename,
+    routes_postrun,
+    routes_postrun_curves,
+    routes_postrun_deconv,
+    routes_postrun_report,
+    routes_postrun_study,
+    routes_postrun_workflow,
+    routes_session,
 )
+from app.core.config import settings
+from app.db.session import create_db_and_tables, engine
+from app.modules import re7s_link
+
+log = logging.getLogger(__name__)
+
+
+def _start_replica_worker() -> threading.Event:
+    """Reenvia ao RE7S as réplicas de renomeação que ficaram pendentes."""
+    stop = threading.Event()
+
+    def loop() -> None:
+        while not stop.wait(settings.outbox_retry_seconds):
+            try:
+                with Session(engine) as session:
+                    re7s_link.retry_replicas(session)
+            except Exception:  # noqa: BLE001 — o laço nunca pode morrer
+                log.exception("falha ao reenviar réplicas ao RE7S")
+
+    threading.Thread(target=loop, name="geohorun-re7s-replica", daemon=True).start()
+    return stop
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # cria tabelas novas e roda as migrações defensivas (app/db/session.py)
     create_db_and_tables()
-    # reenvia ao Resultados o que ficou pendente (Resultados fora do ar etc.)
-    stop = start_outbox_worker(engine, publisher, interval_seconds=settings.outbox_retry_seconds)
+    stop = _start_replica_worker()
     yield
     stop.set()
 
 
 app = FastAPI(title="Horun · PostRun · GeoHorun", version="0.1.0", lifespan=lifespan)
 
-app.include_router(
-    build_router(
-        get_session=get_session,
-        get_identity=get_identity,
-        plugin=EQUIPMENT,
-        source=source,
-        publisher=publisher,
-        config=PostrunConfig(
-            module_id="geohorun",
-            validate_max_level=settings.validate_max_level,
-            unpublish_max_level=settings.unpublish_max_level,
-            # pelo Agente, a varredura para antes do tempo limite do Core (30 s)
-            scan_budget_seconds=20.0 if settings.agent_mode else None,
-        ),
-    ),
-    prefix="/api",
-)
+for _router in (
+    routes_postrun.router,
+    routes_postrun_curves.router,
+    routes_postrun_deconv.router,
+    routes_postrun_report.router,
+    routes_postrun_study.router,
+    routes_postrun_workflow.router,
+    routes_analysis_rename.router,
+    routes_session.router,
+):
+    app.include_router(_router, prefix="/api")
 
 try:  # servidor do Agente (copiado por Agent-Horun/scripts/vendor_server.py)
     from app.api.routes_agent import router as agent_router
@@ -61,6 +81,5 @@ if agent_router is not None:
 
 @app.get("/health")
 def health():
-    # Sem autenticação — usado pelo Horun Core para o dashboard de status
-    # (Prompt_Horun_Core.md, seção 5). Não expor aqui nada além do status.
+    # Sem autenticação — usado pelo Horun Core para o dashboard de status.
     return {"status": "ok", "module": "geohorun"}

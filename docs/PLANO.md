@@ -49,6 +49,19 @@ Passos:
    módulo): RE7S → posições no carrossel, nome duplicado, entrada de histórico,
    amostras da biblioteca, padrões e valores de referência; GeoHorun →
    renomeações feitas (para o histórico e os contadores do RE7S).
+   Desenho (13/11/2026) — o grupo renomear só LÊ tabelas da fila:
+   - **RE7S → GeoHorun (leitura)**, `GET /internal/geohorun/...` com token:
+     `analysis-name/{nome}` (no carrossel? posição; nome já usado na fila;
+     entrada de histórico `{id, extra}`), `history/{id}`, `library` (grupos e
+     amostras `{id, code, name}`), `standards` e `standards/{id}` (nome +
+     valores certificados).
+   - **GeoHorun → RE7S (réplica)**: cada renomeação/mudança de amostra é
+     enviada a `POST /internal/geohorun/renames` (fila de saída com nova
+     tentativa). O RE7S mantém `AnalysisRename` como réplica, e o código da
+     fila (nome duplicado, histórico, contadores da biblioteca) não muda.
+   - `_existing_b00_names` do RE7S (desmarcar analisadas) passa a usar um
+     auxiliar próprio de listagem dos `.B00` (já tem o Agente).
+   - Nos testes do GeoHorun, o RE7S é um falso em memória (`re7s_link`).
 4. **Frontend portado** — a página e os componentes do PostRun entram como as
    abas do GeoHorun; o que é comum de PostRun (`postrun-core`) é usado onde já
    cobre (lista, publicação no Resultados).

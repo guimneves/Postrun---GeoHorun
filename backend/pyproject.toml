@@ -12,6 +12,13 @@ dependencies = [
     "uvicorn[standard]==0.52.3",
     "sqlmodel==0.0.47",
     "pydantic==2.13.4",
+    # PostRun: regressão das curvas e deconvolução (ajuste não linear) —
+    # versões com pacote pronto para o Python 3.11 (servidor) e 3.14 (desenvolvimento)
+    "numpy==2.3.4",
+    "scipy==1.16.3",
+    # relatórios e Estudos em Excel (lxml deixa o openpyxl ~3x mais rápido)
+    "openpyxl==3.1.5",
+    "lxml==6.0.2",
 ]
 
 [project.optional-dependencies]

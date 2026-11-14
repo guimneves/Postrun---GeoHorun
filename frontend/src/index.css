@@ -1,3 +1,36 @@
-/* Tokens específicos deste módulo, se precisar de algum — os tokens
-   compartilhados já vêm de @horun/design-system/src/tokens.css, importado
-   em main.tsx antes deste arquivo. Ver Prompt_Horun_Core.md, seção 2. */
+/* Tokens próprios do PostRun · GeoHorun (os comuns vêm do design-system,
+   importado antes em main.tsx). No RE7S algumas destas cores eram usadas
+   sem estar definidas — aqui ficam explícitas nos três temas. */
+
+:root,
+[data-theme='light'] {
+  --color-danger: #c62828;
+  --color-warning: #b26a00;
+  --color-warn: #b26a00;
+  --color-text-dim: #7a8299;
+  --color-flame: #ff6a35;
+  --color-status-ready: #1fa34a;
+}
+
+[data-theme='dim'] {
+  --color-danger: #ef6b6b;
+  --color-warning: #e0a14a;
+  --color-warn: #e0a14a;
+  --color-text-dim: #8a93ad;
+  --color-flame: #ff7d4d;
+  --color-status-ready: #34c56f;
+}
+
+[data-theme='dark'] {
+  --color-danger: #ff7a7a;
+  --color-warning: #f0b45a;
+  --color-warn: #f0b45a;
+  --color-text-dim: #8d95ad;
+  --color-flame: #ff8a5c;
+  --color-status-ready: #2fbd65;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
