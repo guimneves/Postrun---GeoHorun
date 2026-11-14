@@ -91,7 +91,7 @@ Andamento (14/11/2026):
 - ⬜ 7 no servidor: token nos dois `.env`, subir, migrar, cadastrar no Core,
   enrolar o Agente, conferir — e só então retirar o PostRun do RE7S.
 
-Bug a corrigir na passagem (✅ corrigido no GeoHorun; ⬜ ainda existe no RE7S): `analysis_rename.py:203-206` recria
+Bug corrigido na passagem (✅ GeoHorun; ✅ RE7S, commit 5f081d0): `analysis_rename.py:203-206` recria
 `PostrunAnalysisMeta` sem `file_mass_before_mg` e `component_masses` (perdidos
 ao renomear/mover).
 
