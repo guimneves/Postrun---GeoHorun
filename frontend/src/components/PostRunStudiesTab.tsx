@@ -16,6 +16,7 @@ import { PostRunStudyInspect } from './PostRunStudyInspect'
 import { PostRunStudyTolerance } from './PostRunStudyTolerance'
 import { PostRunValidationPanel } from './PostRunValidationPanel'
 import { PostRunModelCompare } from './PostRunModelCompare'
+import { PostRunInteractionPanel } from './PostRunInteractionPanel'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 const xBtn = 'rounded px-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] disabled:opacity-30'
@@ -483,6 +484,19 @@ export function PostRunStudiesTab({
                   molde mostram o que a deformação (centro, dilatação) acrescenta.
                 </p>
                 <PostRunModelCompare key={detail.id} studyId={detail.id} />
+              </div>
+            )}
+
+            {/* F7: interação na co-pirólise */}
+            {detail.tokens.length > 0 && (
+              <div className={cardClass}>
+                <h3 className="mb-1 font-semibold">Interação na co-pirólise</h3>
+                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
+                  Cada mistura contra a previsão sem interação (os moldes dos puros com as massas esperadas): a curva de
+                  diferença e o ΔM, como no PMP-008; ΔTmax e Δlargura × fração; e os parâmetros que bateram no limite —{' '}
+                  {METHOD_LABEL[viewMethod ?? detail.method]}.
+                </p>
+                <PostRunInteractionPanel key={`${detail.id}-${viewMethod ?? detail.method}`} studyId={detail.id} method={viewMethod ?? detail.method} />
               </div>
             )}
 

@@ -494,6 +494,37 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'interacao',
+    title: 'Interação na co-pirólise (curva de diferença, ΔM)',
+    body: (
+      <>
+        <p>
+          No detalhe de um estudo, <strong>Interação na co-pirólise</strong> → <strong>Calcular a interação</strong>. Para cada
+          mistura com deconvolução salva (no método escolhido no alto do cartão de recuperação):
+        </p>
+        <ul>
+          <li>
+            <strong>Previsão sem interação</strong>: a soma dos moldes dos puros na posição da referência, sem dilatação,
+            cada um com a área que a curva do material dá para a massa esperada (pesada, ou fração × massa);
+          </li>
+          <li>
+            <strong>Curva de diferença</strong> = medido − previsto (análoga ao ΔM do PMP-008) e, na tabela, o{' '}
+            <strong>ΔM</strong> = (área medida − prevista) ÷ prevista e o maior desvio local — clique numa mistura para ver
+            as curvas;
+          </li>
+          <li>
+            <strong>ΔTmax e Δlargura × fração</strong> de cada componente (das deconvoluções salvas); vazado = no limite da
+            tolerância;
+          </li>
+          <li>
+            o <strong>alerta</strong> dos parâmetros que bateram no limite — a interação passou da folga dada ao ajuste
+            (aumente a tolerância, ou reporte o valor como limite).
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
     id: 'publicacao',
     title: 'Figuras e tabelas para publicação',
     body: (

@@ -1111,3 +1111,34 @@ export const compareApi = {
   run: (studyId: number, models: CompareModelKey[]) =>
     api.post<CompareResult>(`/postrun/studies/${studyId}/compare-models`, { models }),
 }
+
+// ------------------------------------------------- F7: interação na co-pirólise
+
+export interface InteractionRun {
+  token: string
+  filename: string
+  composition_text: string
+  delta_m_pct: number | null
+  max_dev_pct: number | null
+  t_s: number[]
+  temp_c: number[]
+  measured: number[]
+  predicted: number[]
+  difference: number[]
+  components: number[][]
+  component_info: { material: string; fraction: number | null; expected_mg: number | null; predicted_area_s: number | null; error: string | null }[]
+  error: string | null
+}
+
+export interface InteractionResult {
+  method: DeconvMethod
+  runs: InteractionRun[]
+  trends: { material: string; fraction: number; delta_mu_c: number | null; delta_width_pct: number | null; at_bound: boolean; token: string }[]
+  alerts: { token: string; filename: string; material: string; delta_mu_c: number | null; delta_width_pct: number | null; tol_c: number; tol_width_pct: number }[]
+  warnings: string[]
+}
+
+export const interactionApi = {
+  run: (studyId: number, method?: DeconvMethod) =>
+    api.post<InteractionResult>(`/postrun/studies/${studyId}/interaction${method ? `?method=${method}` : ''}`),
+}

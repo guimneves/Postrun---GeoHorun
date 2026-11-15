@@ -153,7 +153,11 @@ Andamento da Fase 4 (P2 do artigo, 14/11/2026):
   reajusta puros e misturas sem gravar, curvas por modelo em memória
   (`build_report(curve_cache=…)`); recuperação, RMSE, RMSEP, BIC, R², picos no
   limite. Cartão "Comparador de modelos" no estudo, barras exportáveis.
-- ⬜ F7, F8, F9.
+- ✅ F7: `routes_postrun_interaction.py` — `POST /api/postrun/studies/{id}/interaction`:
+  por mistura, previsão sem interação (moldes rígidos dos puros × área da curva
+  para a massa esperada), curva de diferença e ΔM (%), desvio máximo; ΔTmax e
+  Δlargura × fração; alerta de parâmetro no limite. Painel no estudo.
+- ⬜ F8, F9.
 
 ## Fase 3 — GeoWorks, núcleo
 
