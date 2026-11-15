@@ -109,3 +109,33 @@ def test_real_component_masses_drive_expected_and_keep_grouping(user_client, job
     body = user_client.post("/api/postrun/report/recovery", json={"tokens": [T3]}).json()
     std = next(m for m in body["runs"][0]["materials"] if m["material"] == "STD")
     assert std["expected_mg"] == 20.0 and std["expected_source"] != "massa real pesada"
+
+
+# ---------------------------------------------- F1: poliolefinas somadas
+
+
+def _mat(name, found, expected):
+    from app.api.routes_postrun_report import RunMaterialOut
+
+    return RunMaterialOut(material=name, n_peaks=1, area_s=1.0, u_area_s=0.0, found_mg=found, expected_mg=expected)
+
+
+def test_polyolefins_are_summed_only_with_two_or_more():
+    from app.api.routes_postrun_report import polyolefin_sum
+
+    # PEAD e PP trocam área entre si; a soma recupera bem mesmo assim
+    names, found, rec = polyolefin_sum([_mat("PEAD", 1.3, 1.0), _mat("pp", 0.7, 1.0), _mat("PS", 1.0, 1.0)])
+    assert names == ["PEAD", "pp"] and found == pytest.approx(2.0) and rec == pytest.approx(100.0)
+    # uma poliolefina só: não há soma
+    assert polyolefin_sum([_mat("PEAD", 1.0, 1.0), _mat("PS", 1.0, 1.0)]) == ([], None, None)
+    # uma delas sem curva: a soma não é calculada (diria menos do que parece)
+    assert polyolefin_sum([_mat("PEAD", 1.0, 1.0), _mat("PP", None, 1.0)]) == (["PEAD", "PP"], None, None)
+
+
+def test_report_groups_have_total_n_and_no_polyolefins_for_other_mixtures(user_client, jobs):
+    _setup(user_client)
+    body = user_client.post("/api/postrun/report/recovery", json={"tokens": [T1, T2, T3]}).json()
+    pure = next(g for g in body["groups"] if g["key"] == "STD 100 %")
+    assert pure["total_recovery_pct"]["n"] == 2 and pure["polyolefins"] == []
+    mix = next(g for g in body["groups"] if g["key"] != "STD 100 %")
+    assert mix["total_recovery_pct"]["n"] == 0  # X sem curva: nenhuma réplica válida para o total

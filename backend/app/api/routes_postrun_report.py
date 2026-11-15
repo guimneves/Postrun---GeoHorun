@@ -77,7 +77,13 @@ class RunOut(BaseModel):
     bic: float
     warnings: list[str]
     total_found_mg: float | None = None
+    # recuperação total = Σ massas encontradas ÷ massa pesada da corrida (ou Σ
+    # massas reais dos componentes, quando informadas) — F1 do artigo
     total_recovery_pct: float | None = None
+    # poliolefinas somadas (PEAD + PP…), quando a mistura tem duas ou mais: a
+    # divisão da área entre elas é a parte incerta, a soma não (F1)
+    polyolefins_found_mg: float | None = None
+    polyolefins_recovery_pct: float | None = None
     # massas reais pesadas (mg) por componente, se informadas
     component_masses: dict[str, float] | None = None
     materials: list[RunMaterialOut]
@@ -105,6 +111,9 @@ class GroupOut(BaseModel):
     cycle_label: str
     n_runs: int
     total_recovery_pct: Stat
+    # materiais somados em `polyolefins_recovery_pct` (vazio = não se aplica)
+    polyolefins: list[str] = []
+    polyolefins_recovery_pct: Stat = Stat()
     r2_min: float
     n_runs_with_warnings: int
     materials: list[GroupMaterialOut]
@@ -177,6 +186,30 @@ def _curve_for(session: SessionDep, material: str, channel: str, cycle_key: str,
         ).first()
     cache[key] = curve
     return curve
+
+
+# Poliolefinas (F1): PE de todas as densidades e PP — picos muito sobrepostos
+# na pirólise, então a soma delas é reportada junto das recuperações separadas.
+POLYOLEFINS = frozenset({"PE", "PEAD", "PEBD", "PELBD", "HDPE", "LDPE", "LLDPE", "PP"})
+
+
+def is_polyolefin(material: str) -> bool:
+    return material.strip().upper() in POLYOLEFINS
+
+
+def polyolefin_sum(materials: list[RunMaterialOut]) -> tuple[list[str], float | None, float | None]:
+    """(materiais somados, massa encontrada, recuperação %) das poliolefinas de
+    uma corrida — só quando há duas ou mais e todas foram quantificadas e têm
+    massa esperada; senão a soma não diria o que parece dizer."""
+    polys = [m for m in materials if is_polyolefin(m.material)]
+    names = [m.material for m in polys]
+    if len(polys) < 2:
+        return [], None, None
+    if any(m.found_mg is None or not m.expected_mg for m in polys):
+        return names, None, None
+    found = sum(m.found_mg for m in polys)  # type: ignore[misc]
+    expected = sum(m.expected_mg for m in polys)  # type: ignore[misc]
+    return names, found, 100.0 * found / expected
 
 
 def build_report(session: SessionDep, payload: ReportIn,
@@ -276,7 +309,9 @@ def build_report(session: SessionDep, payload: ReportIn,
             for m in materials:
                 m.flags.append(f"soma das massas reais ({sum(real.values()):.3f} mg) ≠ massa da corrida ({s.mass_mg:.3f} mg)")
                 break
+        _poly_names, poly_found, poly_rec = polyolefin_sum(materials)
         runs.append(RunOut(
+            polyolefins_found_mg=poly_found, polyolefins_recovery_pct=poly_rec,
             token=token, filename=s.filename, sample=s.sample, group=group, composition_text=s.composition_text,
             mass_mg=s.mass_mg, mass_source=s.mass_source, shape=row.shape, mode=row.mode,
             r2=data.get("r2", float("nan")), bic=data.get("bic", float("nan")), warnings=data.get("warnings", []),
@@ -299,9 +334,12 @@ def build_report(session: SessionDep, payload: ReportIn,
                 recovery_pct=_stat([m.recovery_pct for m in rows]), delta_mu_c=_stat([m.delta_mu_c for m in rows]),
                 delta_width_pct=_stat([m.delta_width_pct for m in rows]),
             ))
+        polys = [m for m in mats if is_polyolefin(m)]
         groups.append(GroupOut(
             key=key, composition=comp, cycle_label=group_cycle.get(key, ""), n_runs=len(mine),
             total_recovery_pct=_stat([r.total_recovery_pct for r in mine]),
+            polyolefins=polys if len(polys) >= 2 else [],
+            polyolefins_recovery_pct=_stat([r.polyolefins_recovery_pct for r in mine]) if len(polys) >= 2 else Stat(),
             r2_min=min(r.r2 for r in mine), n_runs_with_warnings=sum(1 for r in mine if r.warnings), materials=gm,
         ))
     # misturas primeiro (mais componentes), depois os puros
@@ -377,12 +415,17 @@ def _xlsx(session: SessionDep, report: ReportOut, deconvs: dict[str, PostrunDeco
                 g.key, g.n_runs, m.material, None if m.fraction is None else 100 * m.fraction,
                 m.expected_mg.mean, m.found_mg.mean, m.found_mg.sd, m.recovery_pct.mean, m.recovery_pct.sd, m.recovery_pct.n,
                 m.delta_mu_c.mean, m.delta_mu_c.sd, m.delta_width_pct.mean, m.delta_width_pct.sd,
-                g.total_recovery_pct.mean, g.total_recovery_pct.sd, g.r2_min, g.n_runs_with_warnings, g.cycle_label,
+                g.total_recovery_pct.mean, g.total_recovery_pct.sd, g.total_recovery_pct.n,
+                " + ".join(g.polyolefins), g.polyolefins_recovery_pct.mean, g.polyolefins_recovery_pct.sd,
+                g.polyolefins_recovery_pct.n if g.polyolefins else None,
+                g.r2_min, g.n_runs_with_warnings, g.cycle_label,
             ])
     sheet(ws, ["Mistura", "Réplicas", "Componente", "Fração (%)", "Massa esperada média (mg)", "Massa encontrada média (mg)",
                "dp massa (mg)", "Recuperação média (%)", "dp recuperação (%)", "n", "ΔTmax médio (°C)", "dp ΔTmax (°C)",
-               "Δlargura média (%)", "dp Δlargura (%)", "Recuperação total média (%)", "dp recuperação total (%)",
-               "R² mínimo", "Réplicas com aviso", "Ciclo"], rows, {1: 34, 19: 50})
+               "Δlargura média (%)", "dp Δlargura (%)",
+               "Recuperação total média (%) — Σ encontrada ÷ massa pesada", "dp recuperação total (%)", "n total",
+               "Poliolefinas somadas", "Recuperação poliolefinas média (%)", "dp recuperação poliolefinas (%)",
+               "n poliolefinas", "R² mínimo", "Réplicas com aviso", "Ciclo"], rows, {1: 34, 15: 30, 24: 50})
 
     ws = wb.create_sheet("Corridas")
     rows = []
@@ -392,12 +435,14 @@ def _xlsx(session: SessionDep, report: ReportOut, deconvs: dict[str, PostrunDeco
                 r.group, r.sample, r.filename, r.mass_mg, r.mass_source, m.material,
                 None if m.fraction is None else 100 * m.fraction, m.n_peaks, m.tpk_c, m.delta_mu_c, m.delta_width_pct,
                 m.area_s, m.u_area_s, m.found_mg, m.U95_mg, m.expected_mg, m.recovery_pct,
-                r.total_recovery_pct, r.r2, r.shape, r.mode, "; ".join(m.flags + r.warnings), r.token,
+                r.total_recovery_pct, r.polyolefins_recovery_pct, r.r2, r.shape, r.mode,
+                "; ".join(m.flags + r.warnings), r.token,
             ])
     sheet(ws, ["Mistura", "Amostra", "Arquivo", "Massa (mg)", "Massa de", "Componente", "Fração (%)", "Picos",
                "Tpico (°C)", "ΔTmax (°C)", "Δlargura (%)", "Área (sinal·s)", "u área", "Massa encontrada (mg)",
-               "U95 (mg)", "Massa esperada (mg)", "Recuperação (%)", "Recuperação total (%)", "R²", "Forma", "Modo",
-               "Avisos", "Caminho"], rows, {1: 34, 3: 36, 22: 60, 23: 60})
+               "U95 (mg)", "Massa esperada (mg)", "Recuperação (%)", "Recuperação total (%)",
+               "Recuperação poliolefinas (%)", "R²", "Forma", "Modo",
+               "Avisos", "Caminho"], rows, {1: 34, 3: 36, 23: 60, 24: 60})
 
     ws = wb.create_sheet("Curvas")
     sheet(ws, ["Componente", "Curva", "Equação (A em sinal·s, m em mg)", "R²", "LD (mg)", "LQ (mg)", "Faixa mín. (mg)",

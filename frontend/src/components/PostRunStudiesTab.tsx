@@ -11,7 +11,7 @@ import {
   type StudyDetail,
   type StudyHeadlineGroup,
 } from '../api/postrun'
-import { RecoveryBars, RecoveryKpis, groupsFromReport, recoveryColor, type RecoveryGroup } from './PostRunRecoveryViz'
+import { POLY_HELP, RecoveryBars, RecoveryKpis, TOTAL_HELP, groupsFromReport, nValid, recoveryColor, type RecoveryGroup } from './PostRunRecoveryViz'
 import { PostRunStudyInspect } from './PostRunStudyInspect'
 import { PostRunStudyTolerance } from './PostRunStudyTolerance'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
@@ -24,7 +24,13 @@ function headlineGroups(h: StudyHeadlineGroup[] | undefined): RecoveryGroup[] {
   return (h ?? []).map((g) => ({
     key: g.key,
     n_runs: g.n_runs,
-    total: { mean: g.total_mean, sd: g.total_sd },
+    // estudos salvos antes da F1 não têm total_n nem as poliolefinas: até o
+    // próximo "atualizar", o n do total fica de fora
+    total: { mean: g.total_mean, sd: g.total_sd, n: g.total_n ?? (g.total_mean !== null ? g.n_runs : 0) },
+    polyolefins:
+      g.polyolefins && g.polyolefins.length >= 2
+        ? { label: g.polyolefins.join(' + '), mean: g.polyolefins_mean ?? null, sd: g.polyolefins_sd ?? null, n: g.polyolefins_n ?? 0 }
+        : null,
     materials: g.materials.map((m) => ({ material: m.material, fraction: m.fraction, mean: m.recovery_mean, sd: m.recovery_sd, n: m.n })),
   }))
 }
@@ -216,12 +222,34 @@ export function PostRunStudiesTab({
                     {activeStudyId === s.id && <strong className="ml-1 text-[var(--color-primary)]">· aberto no workspace</strong>}
                   </div>
                   {head.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] tabular-nums">
+                    // F1: cada componente, as poliolefinas somadas e o total (Σ encontrada ÷ pesada)
+                    // lado a lado, com o n de réplicas válidas — não um % solto
+                    <div className="mt-1.5 flex flex-col gap-1 border-t border-[var(--color-border)] pt-1.5 text-[11px] tabular-nums">
                       {head.slice(0, 4).map((g) => (
-                        <span key={g.key} title={`recuperação total ${g.key}`}>
-                          <span className="text-[var(--color-text-muted)]">{g.key.replace(/ %/g, '')}: </span>
-                          <strong style={{ color: recoveryColor(g.total.mean) }}>{g.total.mean !== null ? `${g.total.mean.toFixed(0)} %` : '—'}</strong>
-                        </span>
+                        <div key={g.key} className="flex flex-wrap items-baseline gap-x-2.5">
+                          <span className="w-full truncate text-[var(--color-text-muted)]">
+                            {g.key.replace(/ %/g, '')} <span className="text-[var(--color-text-dim)]">({g.n_runs} rép.)</span>
+                          </span>
+                          {g.materials.map((m) => (
+                            <span key={m.material} title={`recuperação de ${m.material} — n=${m.n}`}>
+                              {m.material}{' '}
+                              <strong style={{ color: recoveryColor(m.mean) }}>{m.mean !== null ? `${m.mean.toFixed(0)}%` : '—'}</strong>
+                            </span>
+                          ))}
+                          {g.polyolefins && (
+                            <span title={`${POLY_HELP} — n=${g.polyolefins.n}`}>
+                              {g.polyolefins.label}{' '}
+                              <strong style={{ color: recoveryColor(g.polyolefins.mean) }}>
+                                {g.polyolefins.mean !== null ? `${g.polyolefins.mean.toFixed(0)}%` : '—'}
+                              </strong>
+                            </span>
+                          )}
+                          <span title={`${TOTAL_HELP} — n=${g.total.n}`}>
+                            total{' '}
+                            <strong style={{ color: recoveryColor(g.total.mean) }}>{g.total.mean !== null ? `${g.total.mean.toFixed(0)}%` : '—'}</strong>
+                            <span className="text-[var(--color-text-dim)]"> {nValid(g.total.n, g.n_runs)}</span>
+                          </span>
+                        </div>
                       ))}
                     </div>
                   )}

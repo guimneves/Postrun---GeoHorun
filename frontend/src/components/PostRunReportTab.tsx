@@ -5,7 +5,7 @@ import { PEAK_COLORS } from '../lib/postrunColors'
 import { fmtMass, massTemplateCsv, parseComponentMasses } from '../lib/componentMassPaste'
 import { parseMassNumber } from '../lib/weighingPaste'
 import { PostRunScatterPlot } from './PostRunScatterPlot'
-import { RecoveryBars, RecoveryKpis, groupsFromReport, recoveryColor } from './PostRunRecoveryViz'
+import { POLY_HELP, RecoveryBars, RecoveryKpis, TOTAL_HELP, groupsFromReport, nValid, recoveryColor } from './PostRunRecoveryViz'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 function stat(s: ReportStat, unit = '', digits = 1): string {
@@ -112,6 +112,8 @@ export function PostRunReportTab({
   }
 
   const colorOf = (mat: string) => PEAK_COLORS[Math.max(0, materials.indexOf(mat)) % PEAK_COLORS.length]
+  // F1: coluna das poliolefinas somadas só quando alguma composição tem duas ou mais
+  const anyPoly = (report?.groups ?? []).some((g) => (g.polyolefins?.length ?? 0) >= 2)
   const mixtureGroups = (report?.groups ?? []).filter((g) => Object.keys(g.composition).length > 1)
   const recPoints = mixtureGroups.flatMap((g) =>
     g.materials
@@ -465,8 +467,13 @@ export function PostRunReportTab({
                             <td className="py-1 pr-3 tabular-nums">{m.delta_width_pct !== null ? `${m.delta_width_pct >= 0 ? '+' : ''}${m.delta_width_pct.toFixed(1)} %` : '—'}</td>
                             {i === 0 && (
                               <>
-                                <td className="py-1 pr-3 align-top tabular-nums" rowSpan={r.materials.length}>
+                                <td className="py-1 pr-3 align-top tabular-nums" rowSpan={r.materials.length} title={TOTAL_HELP}>
                                   {r.total_recovery_pct !== null ? `${r.total_recovery_pct.toFixed(1)} %` : '—'}
+                                  {r.polyolefins_recovery_pct != null && (
+                                    <span className="block text-[10px] text-[var(--color-text-muted)]" title={POLY_HELP}>
+                                      poliolefinas {r.polyolefins_recovery_pct.toFixed(1)} %
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-1 pr-3 align-top tabular-nums" rowSpan={r.materials.length}>{r.r2.toFixed(4)}</td>
                               </>
@@ -503,7 +510,15 @@ export function PostRunReportTab({
                     <th className="py-1 pr-3">Recuperação</th>
                     <th className="py-1 pr-3">ΔTmax</th>
                     <th className="py-1 pr-3">Δlargura</th>
-                    <th className="py-1 pr-3">Recuperação total</th>
+                    {anyPoly && (
+                      <th className="py-1 pr-3" title={POLY_HELP}>
+                        Poliolefinas somadas
+                      </th>
+                    )}
+                    <th className="py-1 pr-3" title={TOTAL_HELP}>
+                      Recuperação total
+                      <span className="block text-[10px] font-normal text-[var(--color-text-dim)]">Σ encontrada ÷ pesada</span>
+                    </th>
                     <th className="py-1 pr-3">R² mín.</th>
                   </tr>
                 </thead>
@@ -538,9 +553,27 @@ export function PostRunReportTab({
                         <td className="py-1 pr-3 tabular-nums">{signed(m.delta_width_pct, '%')}</td>
                         {i === 0 && (
                           <>
+                            {anyPoly && (
+                              <td className="py-1 pr-3 align-top tabular-nums font-semibold" rowSpan={g.materials.length}
+                                style={{ color: recoveryColor(g.polyolefins_recovery_pct?.mean ?? null) }}>
+                                {g.polyolefins && g.polyolefins.length >= 2 && g.polyolefins_recovery_pct ? (
+                                  <>
+                                    {stat(g.polyolefins_recovery_pct, ' %')}
+                                    <span className="block text-[10px] font-normal text-[var(--color-text-muted)]">
+                                      {g.polyolefins.join(' + ')} · {nValid(g.polyolefins_recovery_pct.n, g.n_runs)}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="font-normal text-[var(--color-text-dim)]">—</span>
+                                )}
+                              </td>
+                            )}
                             <td className="py-1 pr-3 align-top tabular-nums font-semibold" rowSpan={g.materials.length}
                               style={{ color: recoveryColor(g.total_recovery_pct.mean) }}>
                               {stat(g.total_recovery_pct, ' %')}
+                              <span className="block text-[10px] font-normal text-[var(--color-text-muted)]">
+                                {nValid(g.total_recovery_pct.n, g.n_runs)}
+                              </span>
                             </td>
                             <td className="py-1 pr-3 align-top tabular-nums" rowSpan={g.materials.length}>
                               {g.r2_min.toFixed(4)}

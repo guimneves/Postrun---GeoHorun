@@ -104,8 +104,15 @@ class HeadlineMaterial(BaseModel):
 class HeadlineGroup(BaseModel):
     key: str
     n_runs: int
+    # total = Σ massas encontradas ÷ massa pesada; n = réplicas válidas (F1)
     total_mean: float | None = None
     total_sd: float | None = None
+    total_n: int = 0
+    # poliolefinas somadas (PEAD + PP…), quando há duas ou mais
+    polyolefins: list[str] = []
+    polyolefins_mean: float | None = None
+    polyolefins_sd: float | None = None
+    polyolefins_n: int = 0
     materials: list[HeadlineMaterial] = []
 
 
@@ -250,6 +257,9 @@ def _headline(report: ReportOut) -> list[dict]:
     for g in report.groups:
         out.append(HeadlineGroup(
             key=g.key, n_runs=g.n_runs, total_mean=g.total_recovery_pct.mean, total_sd=g.total_recovery_pct.sd,
+            total_n=g.total_recovery_pct.n, polyolefins=g.polyolefins,
+            polyolefins_mean=g.polyolefins_recovery_pct.mean, polyolefins_sd=g.polyolefins_recovery_pct.sd,
+            polyolefins_n=g.polyolefins_recovery_pct.n,
             materials=[HeadlineMaterial(material=m.material, fraction=m.fraction, recovery_mean=m.recovery_pct.mean,
                                         recovery_sd=m.recovery_pct.sd, n=m.recovery_pct.n) for m in g.materials],
         ).model_dump())
@@ -522,14 +532,18 @@ def build_export(session: SessionDep, s: PostrunStudy) -> bytes:
                     method, g.key, g.n_runs, m.material, pct(m.fraction), m.recovery_pct.mean, m.recovery_pct.sd,
                     m.recovery_pct.n, m.expected_mg.mean, m.found_mg.mean, m.found_mg.sd, m.delta_mu_c.mean,
                     m.delta_mu_c.sd, m.delta_width_pct.mean, m.delta_width_pct.sd, g.total_recovery_pct.mean,
-                    g.total_recovery_pct.sd, g.r2_min, g.cycle_label,
+                    g.total_recovery_pct.sd, g.total_recovery_pct.n, " + ".join(g.polyolefins),
+                    g.polyolefins_recovery_pct.mean, g.polyolefins_recovery_pct.sd,
+                    g.polyolefins_recovery_pct.n if g.polyolefins else None, g.r2_min, g.cycle_label,
                 ])
     sheet("Recuperação (médias)", [
         "Método", "Composição", "Réplicas", "Componente", "Fração nominal (%)", "Recuperação média (%)",
         "dp recuperação (%)", "n", "Massa esperada média (mg)", "Massa encontrada média (mg)", "dp massa (mg)",
-        "ΔTmax médio (°C)", "dp ΔTmax (°C)", "Δlargura média (%)", "dp Δlargura (%)", "Recuperação total média (%)",
-        "dp recuperação total (%)", "R² mínimo", "Ciclo",
-    ], rows, {2: 30, 19: 40})
+        "ΔTmax médio (°C)", "dp ΔTmax (°C)", "Δlargura média (%)", "dp Δlargura (%)",
+        "Recuperação total média (%) — Σ encontrada ÷ massa pesada", "dp recuperação total (%)", "n total",
+        "Poliolefinas somadas", "Recuperação poliolefinas média (%)", "dp recuperação poliolefinas (%)",
+        "n poliolefinas", "R² mínimo", "Ciclo",
+    ], rows, {2: 30, 16: 30, 24: 40})
 
     # Horun_Resultados — formato longo (contrato com o módulo Resultados)
     def res_rows():
@@ -550,6 +564,8 @@ def build_export(session: SessionDep, s: PostrunStudy) -> bytes:
                         yield [*base, m.material, name, val, unit, u, *fr]
                 run_fr = [None, None, r.mass_mg, date]
                 yield [*base, "", "Recuperação total", r.total_recovery_pct, "%", None, *run_fr]
+                if r.polyolefins_recovery_pct is not None:
+                    yield [*base, "", "Recuperação poliolefinas", r.polyolefins_recovery_pct, "%", None, *run_fr]
                 yield [*base, "", "Massa encontrada total", r.total_found_mg, "mg", None, *run_fr]
                 yield [*base, "", "R²", r.r2, "", None, *run_fr]
     sheet("Horun_Resultados", [

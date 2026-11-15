@@ -539,7 +539,11 @@ export interface ReportRun {
   bic: number
   warnings: string[]
   total_found_mg: number | null
+  /** Σ massas encontradas ÷ massa pesada (F1) */
   total_recovery_pct: number | null
+  /** poliolefinas somadas (PEAD + PP…), quando há duas ou mais */
+  polyolefins_found_mg?: number | null
+  polyolefins_recovery_pct?: number | null
   component_masses?: Record<string, number> | null
   materials: ReportRunMaterial[]
 }
@@ -550,6 +554,9 @@ export interface ReportGroup {
   cycle_label: string
   n_runs: number
   total_recovery_pct: ReportStat
+  /** materiais somados em `polyolefins_recovery_pct` (vazio = não se aplica) */
+  polyolefins?: string[]
+  polyolefins_recovery_pct?: ReportStat
   r2_min: number
   n_runs_with_warnings: number
   materials: {
@@ -827,6 +834,11 @@ export interface StudyHeadlineGroup {
   n_runs: number
   total_mean: number | null
   total_sd: number | null
+  total_n?: number
+  polyolefins?: string[]
+  polyolefins_mean?: number | null
+  polyolefins_sd?: number | null
+  polyolefins_n?: number
   materials: { material: string; fraction: number | null; recovery_mean: number | null; recovery_sd: number | null; n: number }[]
 }
 

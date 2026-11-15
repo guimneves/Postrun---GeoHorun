@@ -1,15 +1,38 @@
+import type { ReactNode } from 'react'
 import { PEAK_COLORS } from '../lib/postrunColors'
 
 /** Recuperação em destaque (pedido do usuário, 22/10/2026): cartões por
  * composição com a recuperação de cada componente em número grande, e um
  * gráfico de barras com a faixa 95–105 % e a linha dos 100 %. Usado no
- * Relatório e na aba Estudos. */
+ * Relatório e na aba Estudos.
+ *
+ * F1 do artigo: lado a lado, (1) cada componente, (2) as poliolefinas somadas
+ * (PEAD + PP), quando a mistura tem duas ou mais, e (3) o total = Σ massas
+ * encontradas ÷ massa pesada — cada um com média ± DP e o n de réplicas
+ * válidas (com curva para todos os componentes envolvidos). */
+
+export interface RecoveryStat {
+  mean: number | null
+  sd: number | null
+  n: number
+}
 
 export interface RecoveryGroup {
   key: string
   n_runs: number
-  total: { mean: number | null; sd: number | null }
-  materials: { material: string; fraction: number | null; mean: number | null; sd: number | null; n: number }[]
+  total: RecoveryStat
+  /** poliolefinas somadas; null = não se aplica */
+  polyolefins: (RecoveryStat & { label: string }) | null
+  materials: ({ material: string; fraction: number | null } & RecoveryStat)[]
+}
+
+export const TOTAL_HELP = 'total = soma das massas encontradas ÷ massa pesada da corrida'
+export const POLY_HELP =
+  'poliolefinas somadas: os picos de PEAD e PP se sobrepõem na pirólise; a divisão da área entre eles é incerta, a soma não'
+
+/** "n=3" ou "n=2 de 3" quando alguma réplica não entrou. */
+export function nValid(n: number, nRuns: number): string {
+  return n === nRuns ? `n=${n}` : `n=${n} de ${nRuns}`
 }
 
 const OK = '#1baf7a'
@@ -46,34 +69,59 @@ export function RecoveryKpis({ groups, compact = false }: { groups: RecoveryGrou
           </div>
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
             {g.materials.map((m) => (
-              <div key={m.material} className="flex flex-col">
-                <span className="flex items-center gap-1 text-[11px] text-[var(--color-text-muted)]">
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: colorOf(m.material) }} />
-                  {m.material}
-                  {m.fraction !== null && ` · ${(100 * m.fraction).toFixed(0)} %`}
-                </span>
-                <span className="text-2xl font-semibold tabular-nums leading-tight" style={{ color: recoveryColor(m.mean) }}>
-                  {m.mean !== null ? `${m.mean.toFixed(1)} %` : '—'}
-                </span>
-                <span className="text-[11px] tabular-nums text-[var(--color-text-muted)]">
-                  {m.sd !== null ? `± ${m.sd.toFixed(1)} % (dp, n=${m.n})` : m.n ? `n=${m.n}` : 'sem curva'}
-                </span>
-              </div>
+              <Kpi
+                key={m.material}
+                label={
+                  <>
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: colorOf(m.material) }} />
+                    {m.material}
+                    {m.fraction !== null && ` · ${(100 * m.fraction).toFixed(0)} %`}
+                  </>
+                }
+                stat={m}
+                nRuns={g.n_runs}
+                empty="sem curva"
+              />
             ))}
+            {g.polyolefins && (
+              <Kpi label={g.polyolefins.label} stat={g.polyolefins} nRuns={g.n_runs} title={POLY_HELP} divider />
+            )}
             {g.materials.length > 1 && (
-              <div className="flex flex-col border-l pl-4 border-[var(--color-border)]">
-                <span className="text-[11px] text-[var(--color-text-muted)]">total</span>
-                <span className="text-2xl font-semibold tabular-nums leading-tight" style={{ color: recoveryColor(g.total.mean) }}>
-                  {g.total.mean !== null ? `${g.total.mean.toFixed(1)} %` : '—'}
-                </span>
-                <span className="text-[11px] tabular-nums text-[var(--color-text-muted)]">
-                  {g.total.sd !== null ? `± ${g.total.sd.toFixed(1)} %` : ''}
-                </span>
-              </div>
+              <Kpi label="total" stat={g.total} nRuns={g.n_runs} title={TOTAL_HELP} divider={!g.polyolefins} />
             )}
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function Kpi({
+  label,
+  stat,
+  nRuns,
+  title,
+  empty = '',
+  divider = false,
+}: {
+  label: ReactNode
+  stat: RecoveryStat
+  nRuns: number
+  title?: string
+  empty?: string
+  divider?: boolean
+}) {
+  return (
+    <div className={`flex flex-col ${divider ? 'border-l border-[var(--color-border)] pl-4' : ''}`} title={title}>
+      <span className="flex items-center gap-1 text-[11px] text-[var(--color-text-muted)]">{label}</span>
+      <span className="text-2xl font-semibold tabular-nums leading-tight" style={{ color: recoveryColor(stat.mean) }}>
+        {stat.mean !== null ? `${stat.mean.toFixed(1)} %` : '—'}
+      </span>
+      <span className="text-[11px] tabular-nums text-[var(--color-text-muted)]">
+        {stat.mean === null
+          ? empty
+          : `${stat.sd !== null ? `± ${stat.sd.toFixed(1)} % · ` : ''}${nValid(stat.n, nRuns)}`}
+      </span>
     </div>
   )
 }
@@ -85,6 +133,9 @@ export function RecoveryBars({ groups }: { groups: RecoveryGroup[] }) {
   const rows = groups.flatMap((g) => [
     { kind: 'head' as const, label: g.key },
     ...g.materials.map((m) => ({ kind: 'bar' as const, label: m.material, mean: m.mean, sd: m.sd, color: colorOf(m.material) })),
+    ...(g.polyolefins
+      ? [{ kind: 'bar' as const, label: g.polyolefins.label, mean: g.polyolefins.mean, sd: g.polyolefins.sd, color: 'var(--color-text-dim)' }]
+      : []),
     ...(g.materials.length > 1
       ? [{ kind: 'bar' as const, label: 'total', mean: g.total.mean, sd: g.total.sd, color: 'var(--color-text-muted)' }]
       : []),
@@ -150,13 +201,19 @@ export function RecoveryBars({ groups }: { groups: RecoveryGroup[] }) {
 export function groupsFromReport(groups: {
   key: string
   n_runs: number
-  total_recovery_pct: { mean: number | null; sd: number | null }
-  materials: { material: string; fraction: number | null; recovery_pct: { mean: number | null; sd: number | null; n: number } }[]
+  total_recovery_pct: RecoveryStat
+  polyolefins?: string[]
+  polyolefins_recovery_pct?: RecoveryStat
+  materials: { material: string; fraction: number | null; recovery_pct: RecoveryStat }[]
 }[]): RecoveryGroup[] {
   return groups.map((g) => ({
     key: g.key,
     n_runs: g.n_runs,
-    total: { mean: g.total_recovery_pct.mean, sd: g.total_recovery_pct.sd },
-    materials: g.materials.map((m) => ({ material: m.material, fraction: m.fraction, mean: m.recovery_pct.mean, sd: m.recovery_pct.sd, n: m.recovery_pct.n })),
+    total: { ...g.total_recovery_pct },
+    polyolefins:
+      g.polyolefins && g.polyolefins.length >= 2 && g.polyolefins_recovery_pct
+        ? { label: g.polyolefins.join(' + '), ...g.polyolefins_recovery_pct }
+        : null,
+    materials: g.materials.map((m) => ({ material: m.material, fraction: m.fraction, ...m.recovery_pct })),
   }))
 }

@@ -269,6 +269,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     id: 'relatorio',
     title: 'Relatório de recuperação',
     body: (
+      <>
       <p>
         Com as análises abertas (puros e misturas, deconvoluções salvas), a aba <strong>Relatório</strong> agrupa as
         réplicas por composição e mostra, para cada componente, a média ± desvio da massa encontrada, da{' '}
@@ -285,6 +286,26 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         composição (verde até ±5 % de 100, âmbar até ±10 %, vermelho além) e as barras com o desvio, a faixa 95–105 % e a
         linha dos 100 %.
       </p>
+      <p>
+        <strong>Os três números de recuperação</strong> (em cada cartão, na tabela e na lista de Estudos), sempre com média
+        ± desvio e o <strong>n de réplicas válidas</strong> ("n=3 de 4" quando uma réplica não entrou — por exemplo, um
+        componente sem curva):
+      </p>
+      <ul>
+        <li>
+          <strong>de cada componente</strong> — massa encontrada pela curva ÷ massa esperada daquele componente;
+        </li>
+        <li>
+          <strong>PEAD + PP</strong> (poliolefinas somadas), quando a mistura tem duas ou mais — os picos delas se sobrepõem
+          na pirólise, então a divisão da área entre elas é incerta, mas a soma não; é o número a reportar quando as
+          recuperações separadas se compensam (uma alta, outra baixa);
+        </li>
+        <li>
+          <strong>total</strong> — soma das massas encontradas ÷ massa pesada da corrida (ou soma das massas reais dos
+          componentes, quando informadas).
+        </li>
+      </ul>
+      </>
     ),
   },
   {
