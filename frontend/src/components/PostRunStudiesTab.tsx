@@ -154,16 +154,16 @@ export function PostRunStudiesTab({
     if (selected !== null) loadDetail(selected)
   }
 
-  async function exportXlsx() {
+  async function exportXlsx(simples = false) {
     if (!detail) return
     setExporting(true)
-    const blob = await run(() => studyApi.exportXlsx(detail.id))
+    const blob = await run(() => studyApi.exportXlsx(detail.id, simples))
     setExporting(false)
     if (!blob) return
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `estudo_${detail.name.replace(/[^\w-]+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.download = `estudo_${detail.name.replace(/[^\w-]+/g, '_')}${simples ? '_publicacao' : ''}_${new Date().toISOString().slice(0, 10)}.xlsx`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -327,6 +327,15 @@ export function PostRunStudiesTab({
                   )}
                   <button type="button" className={btnClass} onClick={() => void exportXlsx()} disabled={busy || detail.tokens.length === 0}>
                     {exporting ? 'Gerando o Excel… (pode levar ~1 min)' : 'Exportar Excel completo'}
+                  </button>
+                  <button
+                    type="button"
+                    className={btnClass}
+                    onClick={() => void exportXlsx(true)}
+                    disabled={busy || detail.tokens.length === 0}
+                    title="o mesmo Excel, só valores — sem negrito, cores nem larguras (tabelas de artigo)"
+                  >
+                    Excel para publicação
                   </button>
                 </div>
               </div>

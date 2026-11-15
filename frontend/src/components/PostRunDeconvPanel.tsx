@@ -11,7 +11,7 @@ import {
   type DeconvSpec,
 } from '../api/postrun'
 import { fmtNum } from '../lib/postrunFormat'
-import { PEAK_COLORS } from '../lib/postrunColors'
+import { materialColor } from '../lib/postrunColors'
 import { PostRunLinesPlot, type LineSeries } from './PostRunLinesPlot'
 import { shapeSeriesOf } from '../lib/postrunShape'
 import { PostRunScatterPlot } from './PostRunScatterPlot'
@@ -409,7 +409,7 @@ export function PostRunDeconvPanel({
                 {result.peaks.map((p, i) => (
                   <tr key={i} className="border-t border-[var(--color-border)]">
                     <td className="py-1 pr-3">
-                      <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: PEAK_COLORS[i % PEAK_COLORS.length] }} />
+                      <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: materialColor(p.name, result.peaks.map((q) => q.name)) }} />
                       {result.spec.mode === 'free' ? (
                         <input
                           className={`${inputClass} inline-block w-24 text-xs`}
@@ -468,7 +468,7 @@ export function PostRunDeconvPanel({
                 yLabel="sinal ÷ altura"
                 height={240}
                 vLines={[{ x: 0, label: 'máximo' }]}
-                legend={result.peaks.map((pk, i) => ({ label: pk.name, color: PEAK_COLORS[i % PEAK_COLORS.length] }))}
+                legend={result.peaks.map((pk) => ({ label: pk.name, color: materialColor(pk.name, result.peaks.map((q) => q.name)) }))}
               />
             </div>
           )}

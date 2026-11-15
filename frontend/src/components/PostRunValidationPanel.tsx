@@ -8,11 +8,12 @@ import {
   type ValidationReport,
   type ValidationRole,
 } from '../api/postrun'
-import { PEAK_COLORS } from '../lib/postrunColors'
+import { materialColor } from '../lib/postrunColors'
 import { fmtNum } from '../lib/postrunFormat'
 import { btnClass, btnPrimaryClass } from '../ui/classes'
 import { Segmented } from '../ui/Segmented'
 import { recoveryColor } from './PostRunRecoveryViz'
+import { ExportFigure } from '../ui/ExportFigure'
 
 type RoleChoice = ValidationRole | 'nenhum'
 
@@ -208,7 +209,7 @@ export function PostRunValidationPanel({
 
 function ValidationResult({ report }: { report: ValidationReport }) {
   const mats = [...new Set(report.runs.flatMap((r) => r.materials.map((m) => m.material)))]
-  const colorOf = (m: string) => PEAK_COLORS[Math.max(0, mats.indexOf(m)) % PEAK_COLORS.length]
+  const colorOf = (m: string) => materialColor(m, mats)  // F5: cor fixa por polímero
   return (
     <div className="flex flex-col gap-3">
       {[...report.conflicts, ...report.warnings].length > 0 && (
@@ -344,7 +345,8 @@ function FoundVsAdded({ report, colorOf }: { report: ValidationReport; colorOf: 
   const band = relU.length ? relU.reduce((a, b) => a + b, 0) / relU.length / 100 : null
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-xl" role="img" aria-label="Massa encontrada × adicionada">
+      <ExportFigure name="encontrada_x_adicionada" className="w-full max-w-xl">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Massa encontrada × adicionada">
         {band !== null && (
           <polygon
             points={`${sx(0)},${sy(0)} ${sx(vmax)},${sy(vmax * (1 + band))} ${sx(vmax)},${sy(vmax * (1 - band))}`}
@@ -382,6 +384,7 @@ function FoundVsAdded({ report, colorOf }: { report: ValidationReport; colorOf: 
         <text x={14} y={(T + H - B) / 2} textAnchor="middle" fontSize={11} fill="var(--color-text-muted)"
           transform={`rotate(-90 14 ${(T + H - B) / 2})`}>massa encontrada (mg)</text>
       </svg>
+      </ExportFigure>
       <p className="text-center text-[11px] text-[var(--color-text-muted)]">
         tracejada = 1:1 · linhas coloridas = regressão de cada material · barras = U95 de cada ponto
         {band !== null && ` · faixa = ± ${(100 * band).toFixed(1)} % (U95 relativo médio)`}

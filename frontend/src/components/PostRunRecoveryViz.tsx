@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { PEAK_COLORS } from '../lib/postrunColors'
+import { materialColor } from '../lib/postrunColors'
+import { ExportFigure } from '../ui/ExportFigure'
 
 /** Recuperação em destaque (pedido do usuário, 22/10/2026): cartões por
  * composição com a recuperação de cada componente em número grande, e um
@@ -53,7 +54,7 @@ function fmt(mean: number | null, sd: number | null): string {
 
 export function materialColors(groups: RecoveryGroup[]): (mat: string) => string {
   const mats = [...new Set(groups.flatMap((g) => g.materials.map((m) => m.material)))]
-  return (mat) => PEAK_COLORS[Math.max(0, mats.indexOf(mat)) % PEAK_COLORS.length]
+  return (mat) => materialColor(mat, mats)  // F5: cor fixa por polímero
 }
 
 export function RecoveryKpis({ groups, compact = false }: { groups: RecoveryGroup[]; compact?: boolean }) {
@@ -154,6 +155,7 @@ export function RecoveryBars({ groups }: { groups: RecoveryGroup[] }) {
   let y = top
   const ticks = Array.from({ length: Math.floor(xMax / 20) + 1 }, (_, i) => i * 20)
   return (
+    <ExportFigure name="recuperacao_por_componente">
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: Math.max(160, H * 1.15) }} role="img" aria-label="Recuperação por componente">
       <rect x={sx(95)} y={top} width={sx(105) - sx(95)} height={H - top - 24} fill={OK} opacity={0.12} />
       {ticks.map((t) => (
@@ -194,6 +196,7 @@ export function RecoveryBars({ groups }: { groups: RecoveryGroup[] }) {
       })}
       <text x={W - R} y={H - 10} textAnchor="end" fontSize={10} fill="var(--color-text-muted)">recuperação (%)</text>
     </svg>
+    </ExportFigure>
   )
 }
 

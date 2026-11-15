@@ -135,7 +135,15 @@ Andamento da Fase 2 (14/11/2026):
   "excluir…" em lote; Excel do estudo com as abas Arquivos e metadados (SHA-256 de
   cada .B00), Parâmetros dos ajustes, Exclusões e histórico, e a versão do
   GeoHorun em "Sobre" (`GEOHORUN_BUILD` opcional no ambiente). Manual atualizado.
-- ⬜ F5.
+- ✅ F5: botão "⤓ figura" em todo gráfico (`ui/ExportFigure.tsx`,
+  `lib/figureExport.ts`): SVG vetorial autônomo ou PNG 300 dpi (pHYs gravado) com
+  1063 px (1 coluna) ou 2244 px (página), fundo branco e tema claro sempre; paleta
+  FIXA por polímero (Okabe-Ito, `materialColor` em `lib/postrunColors.ts`) em
+  todas as figuras de material; "Excel para publicação" (`?simples=true`, só
+  valores) no Relatório e no estudo. Manual atualizado.
+
+**Fase 2 (P1 do artigo) concluída** — próximos: Fase 3 (núcleo do GeoWorks; precisa
+do livro do Rock-Eval) ou P2 do artigo (F6–F9).
 
 ## Fase 3 — GeoWorks, núcleo
 

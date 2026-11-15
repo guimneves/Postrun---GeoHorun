@@ -139,3 +139,21 @@ def test_report_groups_have_total_n_and_no_polyolefins_for_other_mixtures(user_c
     assert pure["total_recovery_pct"]["n"] == 2 and pure["polyolefins"] == []
     mix = next(g for g in body["groups"] if g["key"] != "STD 100 %")
     assert mix["total_recovery_pct"]["n"] == 0  # X sem curva: nenhuma réplica válida para o total
+
+
+def test_plain_excel_for_publication_has_no_formatting(user_client, jobs):
+    """F5: `?simples=true` — só valores (sem negrito, cor, largura, painel congelado)."""
+    _setup(user_client)
+    for url, kw in (("/api/postrun/report/recovery.xlsx?simples=true", {"json": {"tokens": [T1, T2, T3]}}),):
+        r = user_client.post(url, **kw)
+        assert r.status_code == 200
+        wb = load_workbook(io.BytesIO(r.content))
+        ws = wb["Resumo"]
+        assert ws["A1"].font.bold is False and ws["A1"].fill.fill_type is None and ws.freeze_panes is None
+        assert ws.max_row > 1
+    s = user_client.post("/api/postrun/studies", json={"name": "pub", "method": "gauss"}).json()
+    user_client.post(f"/api/postrun/studies/{s['id']}/collect", json={"tokens": [T1, T2, T3]})
+    r = user_client.get(f"/api/postrun/studies/{s['id']}/export.xlsx?simples=true")
+    wb = load_workbook(io.BytesIO(r.content))
+    ws = wb["Recuperação (médias)"]
+    assert ws["A1"].font.bold is False and ws.freeze_panes is None

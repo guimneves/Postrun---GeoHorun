@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ApiError } from '../api/client'
 import { studyApi, type StudySensitivity } from '../api/postrun'
-import { PEAK_COLORS } from '../lib/postrunColors'
+import { materialColor } from '../lib/postrunColors'
 import { PostRunLinesPlot, type LineSeries } from './PostRunLinesPlot'
 import { inputInlineClass as inputClass, btnPrimaryClass } from '../ui/classes'
 
@@ -42,11 +42,11 @@ export function PostRunStudyTolerance({ studyId }: { studyId: number }) {
     if (!data) return []
     const pts = data.points.filter((p) => p.rmse !== null)
     const x = pts.map((p) => p.tol_width_pct)
-    const out: LineSeries[] = mats.map((m, i) => ({
+    const out: LineSeries[] = mats.map((m) => ({
       key: m,
       x: pts.filter((p) => p.rmse_by_material[m] !== undefined).map((p) => p.tol_width_pct),
       y: pts.filter((p) => p.rmse_by_material[m] !== undefined).map((p) => p.rmse_by_material[m]),
-      color: PEAK_COLORS[i % PEAK_COLORS.length],
+      color: materialColor(m, mats),
       width: 1.6,
       label: `RMSE ${m}`,
     }))
@@ -63,7 +63,7 @@ export function PostRunStudyTolerance({ studyId }: { studyId: number }) {
   ]
   const legend = [
     { label: 'todos', color: 'var(--color-text)' },
-    ...mats.map((m, i) => ({ label: m, color: PEAK_COLORS[i % PEAK_COLORS.length] })),
+    ...mats.map((m) => ({ label: m, color: materialColor(m, mats) })),
     { label: 'total da mistura', color: 'var(--color-text-muted)', dash: '4 3' },
   ]
 
@@ -105,10 +105,10 @@ export function PostRunStudyTolerance({ studyId }: { studyId: number }) {
                   </div>
                   <table className="mt-1 w-full text-xs tabular-nums">
                     <tbody>
-                      {mats.map((m, i) => (
+                      {mats.map((m) => (
                         <tr key={m}>
                           <td className="py-0.5 pr-2">
-                            <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: PEAK_COLORS[i % PEAK_COLORS.length] }} />
+                            <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: materialColor(m, mats) }} />
                             {m}
                           </td>
                           <td className="py-0.5 pr-2 font-semibold">{signed(best.width_by_material[m]?.mean)}</td>

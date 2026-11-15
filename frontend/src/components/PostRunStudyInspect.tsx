@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { postrunApi, type DeconvMethod, type DeconvResult, type RecoveryReport } from '../api/postrun'
-import { PEAK_COLORS } from '../lib/postrunColors'
+import { materialColor } from '../lib/postrunColors'
 import { overlaySeriesOf, shapeSeriesOf } from '../lib/postrunShape'
 import { PostRunLinesPlot } from './PostRunLinesPlot'
 import { recoveryColor } from './PostRunRecoveryViz'
@@ -49,7 +49,8 @@ export function PostRunStudyInspect({ report, method }: { report: RecoveryReport
   const overlay = useMemo(() => overlaySeriesOf(result, showPure), [result, showPure])
   const shape = useMemo(() => shapeSeriesOf(result), [result])
   const tol = result?.spec.tol_width_pct
-  const legend = (result?.peaks ?? []).map((p, i) => ({ label: p.name, color: PEAK_COLORS[i % PEAK_COLORS.length] }))
+  const names = (result?.peaks ?? []).map((p) => p.name)
+  const legend = (result?.peaks ?? []).map((p) => ({ label: p.name, color: materialColor(p.name, names) }))
 
   return (
     <div className="flex flex-col gap-3">
@@ -105,14 +106,14 @@ export function PostRunStudyInspect({ report, method }: { report: RecoveryReport
                 </tr>
               </thead>
               <tbody>
-                {run.materials.map((m, i) => {
+                {run.materials.map((m) => {
                   const pk = result?.peaks.find((p) => p.material === m.material)
                   // mesma cor do gráfico (ordem dos picos)
                   const ci = result ? result.peaks.findIndex((p) => p.material === m.material) : -1
                   return (
                     <tr key={m.material} className="border-t border-[var(--color-border)]">
                       <td className="py-1 pr-3">
-                        <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: PEAK_COLORS[(ci >= 0 ? ci : i) % PEAK_COLORS.length] }} />
+                        <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full" style={{ background: materialColor(ci >= 0 && result ? result.peaks[ci].name : m.material, names) }} />
                         {m.material}
                       </td>
                       <td className="py-1 pr-3 font-semibold tabular-nums" style={{ color: recoveryColor(m.recovery_pct) }}>

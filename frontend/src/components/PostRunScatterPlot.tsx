@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { fmtNum } from '../lib/postrunFormat'
+import { ExportFigure } from '../ui/ExportFigure'
 
 // Gráfico de pontos + linha ajustada (curvas de calibração do PostRun).
 // SVG desenhado à mão, mesmo estilo de PostRunCurveViewer (sem lib de
@@ -147,6 +148,7 @@ export function PostRunScatterPlot({
   const tipY = hp ? Math.min(Math.max(sy(hp.y) - tipH / 2, 2), height - tipH - 2) : 0
 
   return (
+    <ExportFigure name={`${yLabel} x ${xLabel}`}>
     <svg
       ref={svgRef}
       viewBox={`0 0 ${WIDTH} ${height}`}
@@ -309,5 +311,6 @@ export function PostRunScatterPlot({
         </g>
       )}
     </svg>
+    </ExportFigure>
   )
 }

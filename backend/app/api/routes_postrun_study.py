@@ -462,7 +462,8 @@ def _stem(filename: str) -> str:
     return re.sub(r"\.B00$", "", filename, flags=re.IGNORECASE)
 
 
-def build_export(session: SessionDep, s: PostrunStudy) -> bytes:
+def build_export(session: SessionDep, s: PostrunStudy, plain: bool = False) -> bytes:
+    # plain (F5): para publicação — só valores, sem negrito, cor, largura nem painel congelado
     from openpyxl import Workbook
     from openpyxl.cell import WriteOnlyCell
     from openpyxl.styles import Alignment, Font, PatternFill
@@ -474,17 +475,20 @@ def build_export(session: SessionDep, s: PostrunStudy) -> bytes:
 
     def sheet(title: str, header: list[str], rows, widths: dict[int, int] | None = None):
         ws = wb.create_sheet(title)
-        for i, h in enumerate(header, start=1):
-            ws.column_dimensions[get_column_letter(i)].width = (widths or {}).get(i, max(10, min(40, len(h) + 2)))
-        ws.freeze_panes = "A2"
-        cells = []
-        for h in header:
-            c = WriteOnlyCell(ws, value=h)
-            c.font = bold
-            c.fill = fill
-            c.alignment = Alignment(wrap_text=True, vertical="top")
-            cells.append(c)
-        ws.append(cells)
+        if plain:
+            ws.append(list(header))
+        else:
+            for i, h in enumerate(header, start=1):
+                ws.column_dimensions[get_column_letter(i)].width = (widths or {}).get(i, max(10, min(40, len(h) + 2)))
+            ws.freeze_panes = "A2"
+            cells = []
+            for h in header:
+                c = WriteOnlyCell(ws, value=h)
+                c.font = bold
+                c.fill = fill
+                c.alignment = Alignment(wrap_text=True, vertical="top")
+                cells.append(c)
+            ws.append(cells)
         for r in rows:
             ws.append([("" if v is None else v) for v in r])
 
@@ -754,9 +758,10 @@ def build_export(session: SessionDep, s: PostrunStudy) -> bytes:
 
 
 @router.get("/{study_id}/export.xlsx")
-def export_study(study_id: int, session: SessionDep, _user: CurrentUser):
+def export_study(study_id: int, session: SessionDep, _user: CurrentUser, simples: bool = False):
+    """`?simples=true`: para publicação, sem formatação visual (F5)."""
     s = _get(session, study_id)
-    content = build_export(session, s)
+    content = build_export(session, s, plain=simples)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return StreamingResponse(
         io.BytesIO(content),

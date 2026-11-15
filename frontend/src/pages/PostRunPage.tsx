@@ -37,7 +37,7 @@ import { PostRunStudiesTab } from '../components/PostRunStudiesTab'
 import { PostRunOverlayPlot } from '../components/PostRunOverlayPlot'
 import { PostRunMultiPlot } from '../components/PostRunMultiPlot'
 import { PostRunPyrogramPlot } from '../components/PostRunPyrogramPlot'
-import { PEAK_COLORS } from '../lib/postrunColors'
+import { materialColor } from '../lib/postrunColors'
 import { fmtNum } from '../lib/postrunFormat'
 import { isStdJob, useJobScan } from '../hooks/usePostrunScan'
 import { inputClass, inputInlineClass, btnClass, btnPrimaryClass, iconBtnClass, linkBtnClass } from '../ui/classes'
@@ -1010,14 +1010,14 @@ export function PostRunPage() {
     const base = c.idx.map((x, i) => (raw[pos.get(x) ?? -1] ?? c.signal[i]) - c.signal[i])
     return [
       ...c.components.map((vals, k) => ({
-        idx: c.idx, values: vals.map((v, i) => v + base[i]), color: PEAK_COLORS[k % PEAK_COLORS.length], width: 1.6,
+        idx: c.idx, values: vals.map((v, i) => v + base[i]), color: materialColor(activeDeconv!.result.peaks[k]?.name ?? '', activeDeconv!.result.peaks.map((q) => q.name)), width: 1.6,
         label: activeDeconv!.result.peaks[k]?.name,
       })),
       ...(showPure
         ? (c.pure_components ?? []).flatMap((vals, k) =>
             vals.length
               ? [{
-                  idx: c.idx, values: vals.map((v, i) => v + base[i]), color: PEAK_COLORS[k % PEAK_COLORS.length], width: 1.2,
+                  idx: c.idx, values: vals.map((v, i) => v + base[i]), color: materialColor(activeDeconv!.result.peaks[k]?.name ?? '', activeDeconv!.result.peaks.map((q) => q.name)), width: 1.2,
                   dash: '2 3', label: `${activeDeconv!.result.peaks[k]?.name} · molde do puro`,
                 }]
               : [],

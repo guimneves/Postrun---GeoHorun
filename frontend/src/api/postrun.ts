@@ -814,7 +814,9 @@ export const postrunApi = {
     api.post<QuantifyItem[]>('/postrun/quantify', { curve_id: curveId, gaussians }),
 
   recoveryReport: (req: ReportRequest) => api.post<RecoveryReport>('/postrun/report/recovery', req),
-  recoveryReportXlsx: (req: ReportRequest) => api.postBlob('/postrun/report/recovery.xlsx', req),
+  // simples (F5): tabela para publicação, sem formatação visual
+  recoveryReportXlsx: (req: ReportRequest, simples = false) =>
+    api.postBlob(`/postrun/report/recovery.xlsx${simples ? '?simples=true' : ''}`, req),
 
   fitDeconv: (items: DeconvSpec[]) => api.post<DeconvFitItem[]>('/postrun/deconvolution/fit', { items }),
   saveDeconv: (upserts: DeconvSpec[], deleteIds: number[]) =>
@@ -936,7 +938,7 @@ export const studyApi = {
   collect: (id: number, tokens: string[]) => api.post<Study>(`/postrun/studies/${id}/collect`, { tokens }),
   report: (id: number, method?: DeconvMethod) =>
     api.post<{ report: RecoveryReport; frozen: boolean }>(`/postrun/studies/${id}/report${method ? `?method=${method}` : ''}`),
-  exportXlsx: (id: number) => api.getBlob(`/postrun/studies/${id}/export.xlsx`),
+  exportXlsx: (id: number, simples = false) => api.getBlob(`/postrun/studies/${id}/export.xlsx${simples ? '?simples=true' : ''}`),
   sensitivity: (id: number, tolerances: number[]) => api.post<StudySensitivity>(`/postrun/studies/${id}/sensitivity`, { tolerances }),
   // F3: validação independente
   validationConfig: (id: number) => api.get<ValidationConfig>(`/postrun/studies/${id}/validation/config`),

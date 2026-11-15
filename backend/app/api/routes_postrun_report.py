@@ -389,7 +389,8 @@ def _natural_width(session: SessionDep, channel: str, runs: list[RunOut], infos:
 
 # ------------------------------------------------------------------ Excel
 
-def _xlsx(session: SessionDep, report: ReportOut, deconvs: dict[str, PostrunDeconvolution]) -> bytes:
+def _xlsx(session: SessionDep, report: ReportOut, deconvs: dict[str, PostrunDeconvolution], plain: bool = False) -> bytes:
+    # plain (F5): tabela para publicação — só valores, sem negrito, cor, largura nem painel congelado
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -400,12 +401,14 @@ def _xlsx(session: SessionDep, report: ReportOut, deconvs: dict[str, PostrunDeco
 
     def sheet(ws, header: list[str], rows: list[list], widths: dict[int, int] | None = None):
         ws.append(header)
+        for r in rows:
+            ws.append([("" if v is None else v) for v in r])
+        if plain:
+            return
         for c in ws[1]:
             c.font = bold
             c.fill = head_fill
             c.alignment = Alignment(wrap_text=True, vertical="top")
-        for r in rows:
-            ws.append([("" if v is None else v) for v in r])
         ws.freeze_panes = "A2"
         for i, h in enumerate(header, start=1):
             ws.column_dimensions[get_column_letter(i)].width = (widths or {}).get(i, max(10, min(40, len(h) + 2)))
@@ -494,9 +497,10 @@ def recovery_report(payload: ReportIn, session: SessionDep, _user: CurrentUser):
 
 
 @router.post("/recovery.xlsx")
-def recovery_report_xlsx(payload: ReportIn, session: SessionDep, _user: CurrentUser):
+def recovery_report_xlsx(payload: ReportIn, session: SessionDep, _user: CurrentUser, simples: bool = False):
+    """`?simples=true`: tabela para publicação, sem formatação visual (F5)."""
     report, deconvs = build_report(session, payload)
-    content = _xlsx(session, report, deconvs)
+    content = _xlsx(session, report, deconvs, plain=simples)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return StreamingResponse(
         io.BytesIO(content),

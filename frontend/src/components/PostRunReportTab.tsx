@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../api/client'
 import { METHOD_LABEL, postrunApi, type DeconvMethod, type RecoveryReport, type ReportStat, type SavedCurve } from '../api/postrun'
-import { PEAK_COLORS } from '../lib/postrunColors'
+import { materialColor } from '../lib/postrunColors'
 import { fmtMass, massTemplateCsv, parseComponentMasses } from '../lib/componentMassPaste'
 import { parseMassNumber } from '../lib/weighingPaste'
 import { PostRunScatterPlot } from './PostRunScatterPlot'
@@ -94,14 +94,14 @@ export function PostRunReportTab({
     }
   }
 
-  async function downloadXlsx() {
+  async function downloadXlsx(simples = false) {
     setBusy(true)
     try {
-      const blob = await postrunApi.recoveryReportXlsx(req())
+      const blob = await postrunApi.recoveryReportXlsx(req(), simples)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `postrun_recuperacao_${method}_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.download = `postrun_recuperacao_${method}${simples ? '_publicacao' : ''}_${new Date().toISOString().slice(0, 10)}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
@@ -111,7 +111,7 @@ export function PostRunReportTab({
     }
   }
 
-  const colorOf = (mat: string) => PEAK_COLORS[Math.max(0, materials.indexOf(mat)) % PEAK_COLORS.length]
+  const colorOf = (mat: string) => materialColor(mat, materials)  // F5: cor fixa por polímero
   // F1: coluna das poliolefinas somadas só quando alguma composição tem duas ou mais
   const anyPoly = (report?.groups ?? []).some((g) => (g.polyolefins?.length ?? 0) >= 2)
   const mixtureGroups = (report?.groups ?? []).filter((g) => Object.keys(g.composition).length > 1)
@@ -283,6 +283,15 @@ export function PostRunReportTab({
           </button>
           <button type="button" className={btnClass} onClick={() => void downloadXlsx()} disabled={busy || tokens.length === 0}>
             Baixar Excel
+          </button>
+          <button
+            type="button"
+            className={btnClass}
+            onClick={() => void downloadXlsx(true)}
+            disabled={busy || tokens.length === 0}
+            title="só valores, sem negrito, cores nem larguras — para tabelas de artigo"
+          >
+            Excel para publicação
           </button>
           {tokens.length === 0 && <span className="text-xs text-[var(--color-text-muted)]">Abra as análises na aba Análises.</span>}
           {message && <span className="text-xs text-[var(--color-danger)]">{message}</span>}

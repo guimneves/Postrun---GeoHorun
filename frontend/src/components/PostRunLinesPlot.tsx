@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { fmtNum } from '../lib/postrunFormat'
+import { ExportFigure } from '../ui/ExportFigure'
 
 // Várias curvas no mesmo eixo (aba Referências do PostRun): molde, faixa
 // ± desvio e as corridas puras. SVG à mão, no estilo do PostRunScatterPlot.
@@ -119,6 +120,7 @@ export function PostRunLinesPlot({ series, band, xLabel, yLabel, height = 300, v
   }
 
   return (
+    <ExportFigure name={`${yLabel} x ${xLabel}`}>
     <svg
       ref={svgRef}
       viewBox={`0 0 ${WIDTH} ${height}`}
@@ -247,5 +249,6 @@ export function PostRunLinesPlot({ series, band, xLabel, yLabel, height = 300, v
         </g>
       )}
     </svg>
+    </ExportFigure>
   )
 }

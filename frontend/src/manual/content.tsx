@@ -459,6 +459,37 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'publicacao',
+    title: 'Figuras e tabelas para publicação',
+    body: (
+      <>
+        <p>
+          <strong>Figuras</strong>: passe o mouse sobre qualquer gráfico e toque em <strong>⤓ figura</strong> (canto de cima
+          à direita):
+        </p>
+        <ul>
+          <li>
+            <strong>SVG (vetorial)</strong> — abre no Inkscape/Illustrator e escala sem perder qualidade;
+          </li>
+          <li>
+            <strong>PNG 300 dpi — 1 coluna (1063 px)</strong> ou <strong>página inteira (2244 px)</strong> — as larguras
+            mínimas pedidas pela JAAP, com os 300 dpi gravados no arquivo.
+          </li>
+        </ul>
+        <p>
+          A figura sai sempre com fundo branco e as cores do tema claro, mesmo se a tela estiver no escuro, e com fonte
+          Arial/Helvetica. Cada polímero tem <strong>uma cor fixa em todas as figuras</strong> (paleta de Okabe &amp; Ito,
+          segura para daltônicos): PEAD azul, PEBD/PE azul-claro, PP vermelhão, PS verde, PET roxo, PVC laranja, PA preto;
+          outros materiais recebem as cores que sobram.
+        </p>
+        <p>
+          <strong>Tabelas</strong>: <strong>Excel para publicação</strong> (no Relatório e no estudo) gera o mesmo Excel só
+          com valores — sem negrito, cores, larguras nem painel congelado — pronto para editar e colar no artigo.
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'renomear',
     title: 'Renomear, mover e trocar a amostra (coordenação)',
     body: (
