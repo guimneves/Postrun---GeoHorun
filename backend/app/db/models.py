@@ -157,6 +157,10 @@ class PostrunCurve(SQLModel, table=True):
     points: str  # JSON
     fit: str  # JSON
     notes: str = ""
+    # F2: brancos de matriz e limites (LoB/LoD/LoQ, LD/LQ da curva, em mg e
+    # ppm) — entradas e resultado, JSON; vazio = ainda não calculados.
+    # Coluna nova (não existe no RE7S): app/db/session.py garante nos bancos antigos.
+    limits: str = ""
 
     created_by_id: int = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=utcnow)

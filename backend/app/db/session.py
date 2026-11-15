@@ -65,6 +65,7 @@ def _run_migrations() -> None:
         _ensure_column(table, column, ddl_type, rest[0] if rest else None)
     # Colunas novas de tabelas PRÓPRIAS deste módulo: uma linha por coluna, ex.
     #   _ensure_column("minha_tabela", "observacoes", "VARCHAR")
+    _ensure_column("postruncurve", "limits", "VARCHAR", "''")  # F2 (14/11/2026)
 
 
 def create_db_and_tables() -> None:

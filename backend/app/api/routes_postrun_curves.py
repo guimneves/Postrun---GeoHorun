@@ -35,7 +35,7 @@ from app.api.routes_postrun import (
 )
 from app.db.models import PostrunAnalysisMeta, PostrunCurve, PostrunRegion, Role
 from app.api.routes_postrun_deconv import check_method, saved_material_area
-from app.modules import postrun_b00, postrun_calc, postrun_regression
+from app.modules import postrun_b00, postrun_calc, postrun_limits, postrun_regression
 
 router = APIRouter(prefix="/postrun", tags=["postrun"])
 
@@ -130,6 +130,8 @@ class CurveOut(CurvePreviewOut):
     id: int
     name: str
     notes: str
+    # F2: último cálculo de brancos e limites guardado na curva (LimitsOut)
+    limits: dict | None = None
     created_by_id: int
     created_at: datetime
     updated_at: datetime
@@ -317,6 +319,7 @@ def _curve_out(c: PostrunCurve) -> CurveOut:
         x_kind=c.x_kind, component=c.component, model=c.model, weighting=c.weighting,
         points=[CurvePointOut(**p) for p in json.loads(c.points or "[]")],
         fit=CurveFitOut(**fit) if fit else None,
+        limits=json.loads(c.limits) if c.limits else None,
         created_by_id=c.created_by_id, created_at=c.created_at, updated_at=c.updated_at,
     )
 
@@ -404,6 +407,152 @@ def delete_curve(curve_id: int, session: SessionDep, user: CurrentUser):
     session.delete(curve)
     session.commit()
     return {"ok": True}
+
+
+# ------------------------------------------------- F2: brancos e limites
+
+class LimitsIn(BaseModel):
+    blank_tokens: list[str]
+    # réplicas de uma amostra de baixa concentração (LoD de Armbruster & Pry)
+    low_tokens: list[str] = []
+    # massa de matriz (sílica) por cadinho, mg; vazio = média das massas dos brancos
+    matrix_mass_mg: float | None = None
+    # intervalo de integração dos brancos; vazio = a mediana do da curva
+    start_idx: int | None = None
+    end_idx: int | None = None
+    baseline_mode: str = "linear"
+    save: bool = True
+
+
+class LimitRunOut(BaseModel):
+    token: str
+    filename: str = ""
+    sample: str = ""
+    mass_mg: float | None = None
+    area_s: float | None = None
+    apparent_mg: float | None = None
+    error: str | None = None
+
+
+class LimitOut(BaseModel):
+    key: str
+    label: str
+    criterion: str
+    mg: float | None
+    ppm: float | None
+
+
+class LimitsOut(BaseModel):
+    curve_id: int
+    start_idx: int
+    end_idx: int
+    baseline_mode: str
+    matrix_mass_mg: float | None
+    matrix_mass_source: str
+    n_blanks: int
+    blank_mean_mg: float
+    blank_sd_mg: float
+    n_low: int
+    low_sd_mg: float | None
+    limits: list[LimitOut]
+    blanks: list[LimitRunOut]
+    low: list[LimitRunOut]
+    warnings: list[str]
+    computed_at: datetime
+
+
+def _median(values: list[int]) -> int:
+    xs = sorted(values)
+    return xs[len(xs) // 2]
+
+
+def _apparent(session: SessionDep, curve: PostrunCurve, f: postrun_regression.Fit, token: str,
+              window: tuple[int, int, str], cache: dict) -> LimitRunOut:
+    out = LimitRunOut(token=token)
+    try:
+        info = _info(session, token, cache)
+    except HTTPException as exc:
+        out.error = str(exc.detail)
+        return out
+    s = info.summary
+    out.filename, out.sample, out.mass_mg = s.filename, s.sample, s.mass_mg
+    if s.cycle_key != curve.cycle_key:
+        out.error = f"ciclo diferente do da curva ({s.cycle_label})"
+        return out
+    region = PostrunRegion(token=token, channel=curve.channel, label="", start_idx=window[0], end_idx=window[1],
+                           baseline_mode=window[2], fixed_baseline=0.0, created_by_id=0)
+    try:
+        comp = _region_computation(session, region)
+        out.area_s = comp.area * comp.seconds_per_point
+        out.apparent_mg = postrun_regression.inverse(f, out.area_s).x
+    except (postrun_calc.RegionError, postrun_regression.FitError) as exc:
+        out.error = str(exc)
+    return out
+
+
+@router.post("/curves/{curve_id}/limits", response_model=LimitsOut)
+def curve_limits(curve_id: int, payload: LimitsIn, session: SessionDep, user: CurrentUser):
+    """F2: brancos de matriz → LoB/LoD/LoQ (Armbruster & Pry) e LD/LQ da curva,
+    em mg e em ppm. Cada branco é integrado no intervalo da curva e convertido
+    em massa aparente pela própria curva. Com `save`, guarda na curva."""
+    curve = session.get(PostrunCurve, curve_id)
+    if curve is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Curva não encontrada")
+    if payload.save and curve.created_by_id != user.id and user.role != Role.ADMIN:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Só quem criou a curva (ou um admin) pode guardar os limites nela")
+    if payload.baseline_mode not in ("linear", "fixed"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Linha de base inválida: {payload.baseline_mode}")
+    overlap = set(payload.blank_tokens) & set(payload.low_tokens)
+    if overlap:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Uma corrida não pode ser branco e nível baixo ao mesmo tempo")
+    fit_data = json.loads(curve.fit or "{}")
+    if not fit_data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Curva sem ajuste")
+    f = _fit_from_json(fit_data, curve.model, curve.weighting)
+    pts = [p for p in json.loads(curve.points or "[]") if not p.get("excluded")]
+    if payload.start_idx is not None and payload.end_idx is not None:
+        start, end = sorted((payload.start_idx, payload.end_idx))
+    elif pts:
+        start, end = _median([p["start_idx"] for p in pts]), _median([p["end_idx"] for p in pts])
+    else:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Informe o intervalo de integração dos brancos")
+    window = (start, end, payload.baseline_mode)
+    cache: dict = {}
+    blanks = [_apparent(session, curve, f, t, window, cache) for t in dict.fromkeys(payload.blank_tokens)]
+    low = [_apparent(session, curve, f, t, window, cache) for t in dict.fromkeys(payload.low_tokens)]
+    good_blanks = [b.apparent_mg for b in blanks if b.apparent_mg is not None]
+    good_low = [b.apparent_mg for b in low if b.apparent_mg is not None]
+
+    if payload.matrix_mass_mg is not None and payload.matrix_mass_mg > 0:
+        matrix, matrix_src = payload.matrix_mass_mg, "informada"
+    else:
+        masses = [b.mass_mg for b in blanks if b.error is None and b.mass_mg]
+        matrix = sum(masses) / len(masses) if masses else None
+        matrix_src = "média das massas dos brancos" if matrix else "—"
+    sigma_label = "σ dos resíduos no menor nível" if curve.model == "origin" else "σ do intercepto"
+    try:
+        res = postrun_limits.compute(
+            good_blanks, low_mg=good_low, matrix_mass_mg=matrix,
+            curve_lod_mg=fit_data.get("lod"), curve_loq_mg=fit_data.get("loq"), curve_sigma_label=sigma_label,
+        )
+    except postrun_limits.LimitsError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    warnings = list(res.warnings)
+    skipped = [b for b in blanks + low if b.error]
+    if skipped:
+        warnings.append(f"{len(skipped)} corrida(s) fora do cálculo — veja o motivo na tabela.")
+    out = LimitsOut(
+        curve_id=curve.id, start_idx=start, end_idx=end, baseline_mode=payload.baseline_mode,
+        matrix_mass_mg=res.matrix_mass_mg, matrix_mass_source=matrix_src, n_blanks=res.n_blanks,
+        blank_mean_mg=res.blank_mean_mg, blank_sd_mg=res.blank_sd_mg, n_low=res.n_low, low_sd_mg=res.low_sd_mg,
+        limits=[LimitOut(**vars(lim)) for lim in res.limits], blanks=blanks, low=low, warnings=warnings,
+        computed_at=datetime.now(timezone.utc),
+    )
+    if payload.save:
+        curve.limits = out.model_dump_json()
+        session.add(curve)
+        session.commit()
+    return out
 
 
 @router.post("/quantify", response_model=list[QuantifyItemOut])
