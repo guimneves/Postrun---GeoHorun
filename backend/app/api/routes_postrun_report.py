@@ -214,12 +214,15 @@ def polyolefin_sum(materials: list[RunMaterialOut]) -> tuple[list[str], float | 
 
 def build_report(session: SessionDep, payload: ReportIn,
                  infos: dict[str, _AnalysisInfo] | None = None,
-                 rows_override: dict[str, PostrunDeconvolution] | None = None) -> tuple[ReportOut, dict]:
+                 rows_override: dict[str, PostrunDeconvolution] | None = None,
+                 curve_cache: dict | None = None) -> tuple[ReportOut, dict]:
     # `rows_override`: deconvoluções reajustadas na hora, NÃO gravadas (sensibilidade
     # à tolerância do estudo) — no lugar das salvas dessas análises
     # `infos`: cache das análises já lidas (o Excel do estudo chama várias vezes)
     infos = {} if infos is None else infos
-    curve_cache: dict = {}
+    # `curve_cache`: curvas já escolhidas por (material, ciclo) — o comparador de
+    # modelos (F6) passa curvas montadas em memória, nunca gravadas
+    curve_cache = {} if curve_cache is None else curve_cache
     runs: list[RunOut] = []
     skipped: list[SkippedOut] = []
     missing: set[str] = set()

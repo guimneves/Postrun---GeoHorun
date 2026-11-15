@@ -15,6 +15,7 @@ import { POLY_HELP, RecoveryBars, RecoveryKpis, TOTAL_HELP, groupsFromReport, nV
 import { PostRunStudyInspect } from './PostRunStudyInspect'
 import { PostRunStudyTolerance } from './PostRunStudyTolerance'
 import { PostRunValidationPanel } from './PostRunValidationPanel'
+import { PostRunModelCompare } from './PostRunModelCompare'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 const xBtn = 'rounded px-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] disabled:opacity-30'
@@ -469,6 +470,19 @@ export function PostRunStudiesTab({
                   method={viewMethod ?? detail.method}
                   editable={detail.status === 'aberto'}
                 />
+              </div>
+            )}
+
+            {/* F6: comparador de modelos nos mesmos dados */}
+            {detail.tokens.length > 0 && (
+              <div className={cardClass}>
+                <h3 className="mb-1 font-semibold">Comparador de modelos</h3>
+                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
+                  Puros e misturas do estudo ajustados por vários modelos — mesma janela, mesmas referências — cada um com as
+                  próprias curvas (refeitas com os puros no mesmo modelo). Recuperação, RMSE e BIC lado a lado; as ablações do
+                  molde mostram o que a deformação (centro, dilatação) acrescenta.
+                </p>
+                <PostRunModelCompare key={detail.id} studyId={detail.id} />
               </div>
             )}
 

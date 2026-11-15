@@ -145,6 +145,16 @@ Andamento da Fase 2 (14/11/2026):
 **Fase 2 (P1 do artigo) concluída** — próximos: Fase 3 (núcleo do GeoWorks; precisa
 do livro do Rock-Eval) ou P2 do artigo (F6–F9).
 
+Andamento da Fase 4 (P2 do artigo, 14/11/2026):
+- ✅ F6: `routes_postrun_compare.py` — `POST /api/postrun/studies/{id}/compare-models`:
+  molde, molde centro fixo, molde sem dilatação, CLS, gaussiana e bigaussiana
+  guiadas e "soma ponderada (PMP-008)" (= moldes rígidos + fator de resposta médio,
+  reta pela origem com peso 1/m² — leitura nossa, a conferir com o PMP-008);
+  reajusta puros e misturas sem gravar, curvas por modelo em memória
+  (`build_report(curve_cache=…)`); recuperação, RMSE, RMSEP, BIC, R², picos no
+  limite. Cartão "Comparador de modelos" no estudo, barras exportáveis.
+- ⬜ F7, F8, F9.
+
 ## Fase 3 — GeoWorks, núcleo
 
 Do levantamento da ajuda e dos arquivos de configuração do GeoWorks (sem

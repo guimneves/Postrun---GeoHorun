@@ -1078,3 +1078,36 @@ export const runsApi = {
   restore: (tokens: string[], comment: string) => api.post<RunRecord[]>('/postrun/runs/restore', { tokens, comment }),
   log: (tokens: string[]) => api.post<ExclusionLogEntry[]>('/postrun/runs/exclusions/log', tokens),
 }
+
+// ------------------------------------------------- F6: comparador de modelos
+
+export type CompareModelKey = 'molde' | 'molde_c_fixo' | 'molde_s_fixo' | 'cls' | 'gauss' | 'bigauss' | 'pmp008'
+
+export interface CompareModel {
+  key: CompareModelKey
+  label: string
+  n_mixtures: number
+  n_failed: number
+  n_at_bound: number | null
+  recovery: Record<string, { mean: number | null; sd: number | null; n: number }>
+  rmsep_mg: Record<string, number>
+  rmse_recovery_pct: number | null
+  total_recovery: { mean: number | null; sd: number | null; n: number }
+  bic_mean: number | null
+  r2_mean: number | null
+  curve_slopes: Record<string, number>
+  errors: string[]
+}
+
+export interface CompareResult {
+  models: CompareModel[]
+  best: CompareModelKey | null
+  n_pure: number
+  n_mixtures: number
+  warnings: string[]
+}
+
+export const compareApi = {
+  run: (studyId: number, models: CompareModelKey[]) =>
+    api.post<CompareResult>(`/postrun/studies/${studyId}/compare-models`, { models }),
+}

@@ -459,6 +459,41 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'comparador',
+    title: 'Comparador de modelos (e ablação do molde)',
+    body: (
+      <>
+        <p>
+          No detalhe de um estudo, o cartão <strong>Comparador de modelos</strong> reajusta os puros e as misturas do estudo
+          — mesma janela, mesmas referências — em cada modelo escolhido, <strong>sem gravar nada</strong>. Cada modelo ganha
+          as próprias curvas, refeitas com os puros no mesmo modelo, e as misturas são quantificadas por elas:
+        </p>
+        <ul>
+          <li><strong>Molde</strong>: centro e dilatação livres (dentro das tolerâncias salvas);</li>
+          <li>
+            <strong>Molde, centro fixo</strong> e <strong>Molde, sem dilatação</strong>: a ablação — mostra o que cada parte
+            da deformação acrescenta;
+          </li>
+          <li><strong>Molde rígido (CLS)</strong>: centro e dilatação fixos (mínimos quadrados clássicos);</li>
+          <li><strong>Gaussiana guiada</strong> e <strong>Bigaussiana guiada</strong>;</li>
+          <li>
+            <strong>Soma ponderada (PMP-008)</strong>: moldes rígidos quantificados pelo fator de resposta médio dos puros
+            (área/mg) — a leitura do GeoHorun para o método do PMP-008.
+          </li>
+        </ul>
+        <p>
+          A tabela traz a recuperação de cada material, a total, o <strong>RMSE da recuperação</strong> (todos os
+          componentes das misturas; o menor fica destacado), o RMSEP em mg, o BIC e o R² médios e quantos picos ficaram no
+          limite da tolerância. O gráfico de barras (RMSE por modelo) exporta como figura.
+        </p>
+        <p>
+          Precisa de puros e misturas com deconvolução salva (molde ou gaussiana guiada, com referências). Como reajusta
+          tudo, pode levar alguns segundos por modelo.
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'publicacao',
     title: 'Figuras e tabelas para publicação',
     body: (
