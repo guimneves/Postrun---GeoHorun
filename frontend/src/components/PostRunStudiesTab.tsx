@@ -17,6 +17,7 @@ import { PostRunStudyTolerance } from './PostRunStudyTolerance'
 import { PostRunValidationPanel } from './PostRunValidationPanel'
 import { PostRunModelCompare } from './PostRunModelCompare'
 import { PostRunInteractionPanel } from './PostRunInteractionPanel'
+import { PostRunRobustnessPanel } from './PostRunRobustnessPanel'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 const xBtn = 'rounded px-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] disabled:opacity-30'
@@ -497,6 +498,19 @@ export function PostRunStudiesTab({
                   {METHOD_LABEL[viewMethod ?? detail.method]}.
                 </p>
                 <PostRunInteractionPanel key={`${detail.id}-${viewMethod ?? detail.method}`} studyId={detail.id} method={viewMethod ?? detail.method} />
+              </div>
+            )}
+
+            {/* F8: robustez dos moldes */}
+            {detail.tokens.length > 0 && (
+              <div className={cardClass}>
+                <h3 className="mb-1 font-semibold">Robustez dos moldes</h3>
+                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
+                  Quanto a quantificação depende do molde: refaz o molde do material sem cada corrida pura
+                  (deixa-uma-de-fora), reajusta puros e misturas e requantifica — sem gravar. Daí sai o termo do molde na
+                  incerteza combinada. Opcional: compara com o molde de outro lote, grade ou granulometria.
+                </p>
+                <PostRunRobustnessPanel key={detail.id} studyId={detail.id} analyses={detail.analyses} />
               </div>
             )}
 

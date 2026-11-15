@@ -157,7 +157,13 @@ Andamento da Fase 4 (P2 do artigo, 14/11/2026):
   por mistura, previsão sem interação (moldes rígidos dos puros × área da curva
   para a massa esperada), curva de diferença e ΔM (%), desvio máximo; ΔTmax e
   Δlargura × fração; alerta de parâmetro no limite. Painel no estudo.
-- ⬜ F8, F9.
+- ✅ F8: `routes_postrun_robustness.py` — `POST /api/postrun/studies/{id}/template-robustness`:
+  deixa-uma-corrida-de-fora no molde do material (molde refeito em memória,
+  puros/misturas reajustados, curva refeita, misturas requantificadas), efeito do
+  molde (dp da recuperação), incerteza combinada por mistura (u_ajuste ⊕ u_molde) e
+  comparação com outro molde (correlação, L2, posição do máximo, Δ recuperação).
+  `_compute`/`_references` aceitam `ref_override` (moldes em memória). Painel no estudo.
+- ⬜ F9.
 
 ## Fase 3 — GeoWorks, núcleo
 

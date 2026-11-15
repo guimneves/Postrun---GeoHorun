@@ -1142,3 +1142,25 @@ export const interactionApi = {
   run: (studyId: number, method?: DeconvMethod) =>
     api.post<InteractionResult>(`/postrun/studies/${studyId}/interaction${method ? `?method=${method}` : ''}`),
 }
+
+// ------------------------------------------------- F8: robustez dos moldes
+
+export interface RobustnessResult {
+  material: string
+  reference_id: number
+  reference_name: string
+  n_template_runs: number
+  n_pures: number
+  n_mixtures: number
+  baseline_recovery: number | null
+  loro: { left_out: string; filename: string; recovery_mean: number | null; error: string | null }[]
+  template_sd_recovery: number | null
+  combined: { token: string; filename: string; found_mg: number | null; u_fit_mg: number | null; u_template_mg: number | null; U95_combined_mg: number | null; template_share_pct: number | null }[]
+  compare: { reference_id: number; name: string; correlation: number | null; l2: number | null; l2_rel_pct: number | null; max_c_diff: number | null; recovery_mean: number | null; delta_recovery: number | null } | null
+  warnings: string[]
+}
+
+export const robustnessApi = {
+  run: (studyId: number, material: string, altReferenceId: number | null) =>
+    api.post<RobustnessResult>(`/postrun/studies/${studyId}/template-robustness`, { material, alt_reference_id: altReferenceId }),
+}

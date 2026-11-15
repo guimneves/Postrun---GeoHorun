@@ -525,6 +525,36 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'robustez',
+    title: 'Robustez dos moldes (deixa-uma-de-fora, incerteza do molde)',
+    body: (
+      <>
+        <p>
+          No detalhe de um estudo, <strong>Robustez dos moldes</strong>: escolha o material e toque em{' '}
+          <strong>Calcular a robustez</strong>. Precisa de misturas com o material ajustadas por <strong>molde</strong> e
+          de pelo menos 3 corridas no molde dele. Nada é gravado.
+        </p>
+        <ul>
+          <li>
+            <strong>Deixa-uma-corrida-de-fora</strong>: o molde é refeito sem cada corrida pura; puros e misturas são
+            reajustados com ele, a curva do material é refeita e as misturas requantificadas. O gráfico mostra a
+            recuperação com cada molde (traço preto = molde completo) e o <strong>efeito do molde</strong> (desvio, em pontos
+            percentuais).
+          </li>
+          <li>
+            <strong>Incerteza combinada</strong>, por mistura: u² = u_ajuste² + u_molde² (u_ajuste = U95 da curva ÷ 2; u_molde
+            = desvio da massa encontrada entre os moldes deixa-um-de-fora) e a parte da variância que vem do molde.
+          </li>
+          <li>
+            <strong>Comparar com outro molde</strong> (outro lote, grade ou granulometria — crie a referência dele na aba
+            Deconvolução): correlação e distância L2 das formas, diferença de posição do máximo e a recuperação das misturas
+            com ele no lugar.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
     id: 'publicacao',
     title: 'Figuras e tabelas para publicação',
     body: (

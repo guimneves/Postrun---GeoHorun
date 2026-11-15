@@ -265,10 +265,12 @@ def _window(analysis: postrun_b00.B00Analysis, spec: DeconvSpecIn):
     return xs, np.asarray(corrected, dtype=float), t, np.asarray(temps, dtype=float), tb
 
 
-def _references(session: SessionDep, ids: list[int], channel: str, cycle_key: str) -> list[PostrunDeconvReference]:
+def _references(session: SessionDep, ids: list[int], channel: str, cycle_key: str,
+                ref_override: dict[int, PostrunDeconvReference] | None = None) -> list[PostrunDeconvReference]:
+    # `ref_override`: referências montadas em memória (ex.: molde sem uma corrida, F8) no lugar das gravadas
     out = []
     for rid in ids:
-        ref = session.get(PostrunDeconvReference, rid)
+        ref = (ref_override or {}).get(rid) or session.get(PostrunDeconvReference, rid)
         if ref is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Referência {rid} não encontrada")
         if ref.channel != channel:
@@ -288,7 +290,8 @@ def _peak_values(t: np.ndarray, pk: dict, shape: str) -> np.ndarray:
     return h * np.exp(-0.5 * ((t - mu) / s) ** 2)
 
 
-def _compute(session: SessionDep, spec: DeconvSpecIn) -> DeconvOut:
+def _compute(session: SessionDep, spec: DeconvSpecIn,
+             ref_override: dict[int, PostrunDeconvReference] | None = None) -> DeconvOut:
     _validate(spec)
     _check_region_token(session, spec.token)
     try:
@@ -300,10 +303,10 @@ def _compute(session: SessionDep, spec: DeconvSpecIn) -> DeconvOut:
 
     refs: dict[int, PostrunDeconvReference] = {}
     if spec.mode == "template":
-        return _compute_template(session, spec, analysis, xs, y, t, temps, tb, rate_c_per_s)
+        return _compute_template(session, spec, analysis, xs, y, t, temps, tb, rate_c_per_s, ref_override)
     if spec.mode == "guided":
         guesses: list[postrun_deconv.PeakGuess] = []
-        for ref in _references(session, spec.reference_ids, spec.channel, analysis.header.cycle_key):
+        for ref in _references(session, spec.reference_ids, spec.channel, analysis.header.cycle_key, ref_override):
             refs[ref.id] = ref
             ref_peaks = json.loads(ref.peaks or "[]")
             for i, rp in enumerate(ref_peaks):
@@ -376,12 +379,12 @@ def _template_of(ref: PostrunDeconvReference) -> tuple[postrun_deconv.Template, 
     return postrun_deconv.Template(tau=data["tau"], density=data["density"]), data
 
 
-def _compute_template(session, spec, analysis, xs, y, t, temps, tb, rate_c_per_s) -> DeconvOut:
+def _compute_template(session, spec, analysis, xs, y, t, temps, tb, rate_c_per_s, ref_override=None) -> DeconvOut:
     """Modo "Molde do material puro": cada componente = a curva média do puro
     (área 1), com área, centro (± tol °C) e dilatação (± tol %) livres."""
     guesses: list[postrun_deconv.TemplateGuess] = []
     meta: dict[int, dict] = {}
-    for ref in _references(session, spec.reference_ids, spec.channel, analysis.header.cycle_key):
+    for ref in _references(session, spec.reference_ids, spec.channel, analysis.header.cycle_key, ref_override):
         tpl, data = _template_of(ref)
         tol_s = max(spec.tol_c / rate_c_per_s, 1e-3)
         tw = spec.tol_width_pct / 100.0
