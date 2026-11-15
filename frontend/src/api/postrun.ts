@@ -338,10 +338,60 @@ export interface CurvePreview {
   error: string | null
 }
 
+// F2: brancos de matriz e limites (POST /postrun/curves/{id}/limits)
+export interface LimitsIn {
+  blank_tokens: string[]
+  low_tokens?: string[]
+  matrix_mass_mg?: number | null
+  start_idx?: number | null
+  end_idx?: number | null
+  baseline_mode?: BaselineMode
+  save?: boolean
+}
+
+export interface LimitRun {
+  token: string
+  filename: string
+  sample: string
+  mass_mg: number | null
+  area_s: number | null
+  apparent_mg: number | null
+  error: string | null
+}
+
+export interface LimitValue {
+  key: 'lob' | 'lod' | 'loq' | 'ld_curve' | 'lq_curve'
+  label: string
+  criterion: string
+  mg: number | null
+  ppm: number | null
+}
+
+export interface LimitsOut {
+  curve_id: number
+  start_idx: number
+  end_idx: number
+  baseline_mode: BaselineMode
+  matrix_mass_mg: number | null
+  matrix_mass_source: string
+  n_blanks: number
+  blank_mean_mg: number
+  blank_sd_mg: number
+  n_low: number
+  low_sd_mg: number | null
+  limits: LimitValue[]
+  blanks: LimitRun[]
+  low: LimitRun[]
+  warnings: string[]
+  computed_at: string
+}
+
 export interface SavedCurve extends CurvePreview {
   id: number
   name: string
   notes: string
+  /** F2: último cálculo de brancos e limites guardado na curva */
+  limits?: LimitsOut | null
   created_by_id: number
   created_at: string
   updated_at: string
@@ -757,6 +807,7 @@ export const postrunApi = {
   listCurves: (channel?: string) =>
     api.get<SavedCurve[]>(`/postrun/curves${channel ? `?channel=${encodeURIComponent(channel)}` : ''}`),
   deleteCurve: (id: number) => api.delete<{ ok: boolean }>(`/postrun/curves/${id}`),
+  curveLimits: (id: number, body: LimitsIn) => api.post<LimitsOut>(`/postrun/curves/${id}/limits`, body),
   quantify: (curveId: number, regions: RegionIn[]) =>
     api.post<QuantifyItem[]>('/postrun/quantify', { curve_id: curveId, regions }),
   quantifyGaussians: (curveId: number, gaussians: { token: string; channel: string; material: string }[]) =>

@@ -113,14 +113,12 @@ Andamento da Fase 2 (14/11/2026):
   (PEAD + PP…, `routes_postrun_report.POLYOLEFINS`) e total (Σ encontrada ÷ massa
   pesada), média ± DP e n de réplicas válidas — Relatório, cartões, Excel, lista
   de Estudos, Manual.
-- 🟡 F2 backend pronto: `app/modules/postrun_limits.py` (LoB/LoD/LoQ de Armbruster
-  & Pry + LD/LQ da curva, mg e ppm, aviso com < 10 brancos) e
-  `POST /api/postrun/curves/{id}/limits` (brancos integrados no intervalo da
-  curva e convertidos pela curva; resultado guardado em `PostrunCurve.limits`);
-  testes em `tests/test_postrun_limits.py`. **Falta:** cartão "Brancos e limites"
-  na aba Curvas (escolher brancos e nível baixo entre as análises abertas, massa
-  de matriz, tabela mg/ppm com o critério de cada limite), Manual, e conferir o
-  LoQ com o PMP-009 (hoje μ_branco + 10σ_branco — perguntado ao usuário).
+- ✅ F2: `app/modules/postrun_limits.py` (LoB/LoD/LoQ de Armbruster & Pry + LD/LQ da
+  curva, mg e ppm, aviso com < 10 brancos), `POST /api/postrun/curves/{id}/limits`
+  (resultado guardado em `PostrunCurve.limits`) e o cartão "Brancos e limites" na
+  aba Curvas (papel de cada análise aberta: branco / nível baixo / fora; massa de
+  matriz; intervalo). Manual atualizado. **Aberto:** conferir o LoQ com o PMP-009
+  (hoje μ_branco + 10σ_branco — perguntado ao usuário).
 - ⬜ F3, F4, F5.
 
 ## Fase 3 — GeoWorks, núcleo

@@ -194,6 +194,51 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'limites',
+    title: 'Brancos de matriz e limites (LoB, LoD, LoQ em mg e ppm)',
+    body: (
+      <>
+        <p>
+          Abra uma curva salva na aba <strong>Curvas</strong>: embaixo aparece o cartão{' '}
+          <strong>Brancos de matriz e limites</strong>. Antes, na aba Análises, abra as corridas de{' '}
+          <strong>branco da matriz</strong> (sílica sem polímero, mesmo ciclo da curva — o recomendado é 10 ou mais) e, se
+          tiver, as réplicas de uma amostra de <strong>baixa concentração</strong>.
+        </p>
+        <ol>
+          <li>
+            No cartão, marque o papel de cada análise aberta: <strong>branco</strong>, <strong>nível baixo</strong> ou{' '}
+            <strong>fora</strong>. Corridas com "branco", "sílica" ou "SiO2" no nome já vêm como branco.
+          </li>
+          <li>
+            Informe a <strong>massa de matriz por cadinho</strong> (mg) — vazio usa a média das massas dos brancos. O
+            intervalo de integração vem da curva (pode mudar).
+          </li>
+          <li>
+            <strong>Calcular limites</strong>: cada corrida é integrada no intervalo e convertida em massa aparente pela
+            própria curva. O resultado fica guardado na curva.
+          </li>
+        </ol>
+        <p>Os limites, em mg e em ppm (µg/g de matriz = mg ÷ mg de matriz × 10⁶), com o critério escrito ao lado:</p>
+        <ul>
+          <li>
+            <strong>LoB</strong> = média dos brancos + 1,645 × desvio dos brancos (Armbruster &amp; Pry);
+          </li>
+          <li>
+            <strong>LoD</strong> = LoB + 1,645 × desvio das réplicas de nível baixo (sem elas, o desvio dos brancos — aviso);
+          </li>
+          <li>
+            <strong>LoQ</strong> = média dos brancos + 10 × desvio dos brancos;
+          </li>
+          <li>
+            <strong>LD / LQ da curva</strong> = 3,3·σ₀/b e 10·σ₀/b, com σ₀ e a inclinação b da própria curva (na reta pela
+            origem, σ₀ vem das réplicas do menor nível — são precisas pelo menos 2).
+          </li>
+        </ul>
+        <p>Com menos de 10 brancos aparece um aviso: o desvio do branco, e com ele os limites, fica pouco confiável.</p>
+      </>
+    ),
+  },
+  {
     id: 'deconvolucao',
     title: 'Deconvolução: referências, moldes e misturas',
     body: (

@@ -1303,6 +1303,7 @@ export function PostRunPage() {
           analysesByToken={analysesByToken}
           onAnalysesUpdated={mergeAnalyses}
           curveFilter={studyFilter.curve}
+          openTokens={openTokens}
         />
       )}
 

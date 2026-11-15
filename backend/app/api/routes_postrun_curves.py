@@ -538,6 +538,12 @@ def curve_limits(curve_id: int, payload: LimitsIn, session: SessionDep, user: Cu
     except postrun_limits.LimitsError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     warnings = list(res.warnings)
+    if fit_data.get("lod") is None:
+        warnings.append(
+            "LD/LQ da curva indisponíveis: na reta pela origem, σ₀ vem das réplicas do menor nível de massa — "
+            "a curva precisa de pelo menos 2 nesse nível."
+            if curve.model == "origin" else "LD/LQ da curva indisponíveis (inclinação não positiva)."
+        )
     skipped = [b for b in blanks + low if b.error]
     if skipped:
         warnings.append(f"{len(skipped)} corrida(s) fora do cálculo — veja o motivo na tabela.")

@@ -15,6 +15,7 @@ import {
 import { fmtNum } from '../lib/postrunFormat'
 import { PostRunScatterPlot } from './PostRunScatterPlot'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
+import { PostRunCurveLimits } from './PostRunCurveLimits'
 
 const MODEL_LABELS: Record<CurveModel, string> = {
   linear: 'Reta (a + b·m)',
@@ -57,7 +58,10 @@ export function PostRunCurvesTab({
   analysesByToken,
   onAnalysesUpdated,
   curveFilter,
+  openTokens = [],
 }: {
+  /** análises abertas no workspace — candidatas a branco/nível baixo (F2) */
+  openTokens?: string[]
   workspacePoints: WorkspacePoint[]
   workspaceGaussians: WorkspaceGaussian[]
   analysesByToken: Record<string, AnalysisSummary>
@@ -242,6 +246,7 @@ export function PostRunCurvesTab({
   }
 
   const fit = preview?.fit ?? null
+  const savedCurve = editingId !== null ? (allCurves.find((c) => c.id === editingId) ?? null) : null
   const xLabel = xKind === 'component_mass' && component ? `Massa de ${component} (mg)` : 'Massa da amostra (mg)'
   // pontos dos gráficos: `id` = índice do ponto na curva (clique/seleção);
   // resíduo calculado também para os que estão fora do ajuste (para ver se
@@ -634,6 +639,10 @@ export function PostRunCurvesTab({
             />
           </div>
         </div>
+      )}
+
+      {editingId !== null && savedCurve && (
+        <PostRunCurveLimits curve={savedCurve} openTokens={openTokens} analysesByToken={analysesByToken} onSaved={loadCurves} />
       )}
     </div>
   )
