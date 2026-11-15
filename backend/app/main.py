@@ -23,6 +23,7 @@ from app.api import (
     routes_postrun_deconv,
     routes_postrun_report,
     routes_postrun_study,
+    routes_postrun_validation,
     routes_postrun_workflow,
     routes_session,
 )
@@ -65,6 +66,7 @@ for _router in (
     routes_postrun_deconv.router,
     routes_postrun_report.router,
     routes_postrun_study.router,
+    routes_postrun_validation.router,
     routes_postrun_workflow.router,
     routes_analysis_rename.router,
     routes_session.router,

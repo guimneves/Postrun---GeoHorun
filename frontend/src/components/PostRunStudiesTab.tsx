@@ -14,6 +14,7 @@ import {
 import { POLY_HELP, RecoveryBars, RecoveryKpis, TOTAL_HELP, groupsFromReport, nValid, recoveryColor, type RecoveryGroup } from './PostRunRecoveryViz'
 import { PostRunStudyInspect } from './PostRunStudyInspect'
 import { PostRunStudyTolerance } from './PostRunStudyTolerance'
+import { PostRunValidationPanel } from './PostRunValidationPanel'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 const xBtn = 'rounded px-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] disabled:opacity-30'
@@ -442,6 +443,25 @@ export function PostRunStudiesTab({
                 </button>
               )}
             </div>
+
+            {/* F3: validação independente (calibração × validação, modo cego, RMSEP, ANOVA) */}
+            {detail.tokens.length > 0 && (
+              <div className={cardClass}>
+                <h3 className="mb-1 font-semibold">Validação independente</h3>
+                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
+                  Marque as corridas de calibração e as de validação (independentes das curvas). As de validação são
+                  quantificadas pelas curvas e comparadas com a massa pesada: recuperação, viés, RMSEP e precisão
+                  intermediária (ANOVA com o dia como fator) — {METHOD_LABEL[viewMethod ?? detail.method]}.
+                </p>
+                <PostRunValidationPanel
+                  key={detail.id}
+                  studyId={detail.id}
+                  analyses={detail.analyses}
+                  method={viewMethod ?? detail.method}
+                  editable={detail.status === 'aberto'}
+                />
+              </div>
+            )}
 
             {/* réplica a réplica: a corrida com o molde do puro, a forma e as larguras (22/10/2026) */}
             {report && viewMethod && report.report.runs.length > 0 && (

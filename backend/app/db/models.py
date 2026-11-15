@@ -254,6 +254,10 @@ class PostrunStudy(SQLModel, table=True):
     snapshot: str = ""
     # resumo da última recuperação calculada (JSON), para a lista de estudos
     headline: str = ""
+    # F3: validação independente — papéis (calibração/validação), modo cego e
+    # a revelação (com as massas encontradas naquele momento). JSON; coluna nova
+    # (não existe no RE7S): app/db/session.py garante nos bancos antigos.
+    validation: str = ""
 
     created_by_id: int = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=utcnow)

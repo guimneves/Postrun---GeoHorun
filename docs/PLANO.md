@@ -119,7 +119,15 @@ Andamento da Fase 2 (14/11/2026):
   aba Curvas (papel de cada análise aberta: branco / nível baixo / fora; massa de
   matriz; intervalo). Manual atualizado. **Aberto:** conferir o LoQ com o PMP-009
   (hoje μ_branco + 10σ_branco — perguntado ao usuário).
-- ⬜ F3, F4, F5.
+- ✅ F3: `app/modules/postrun_validation.py` (viés, RMSEP, recuperação, regressão,
+  ANOVA de um fator com o dia como fator → s_r, s_entre, s_PI) e
+  `routes_postrun_validation.py` (papéis calibração/validação por estudo em
+  `PostrunStudy.validation`; corrida de validação que é ponto de curva sai das
+  métricas; modo cego esconde nome/proporções/massa adicionada/recuperação até
+  "revelar", que guarda as massas encontradas e trava o conjunto). Cartão
+  "Validação independente" no detalhe do estudo, com o gráfico encontrada ×
+  adicionada (1:1, regressão, U95). Manual atualizado.
+- ⬜ F4, F5.
 
 ## Fase 3 — GeoWorks, núcleo
 

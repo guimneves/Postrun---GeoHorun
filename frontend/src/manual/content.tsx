@@ -374,6 +374,54 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'validacao',
+    title: 'Validação independente (calibração × validação, modo cego)',
+    body: (
+      <>
+        <p>
+          No detalhe de um estudo (aba <strong>Estudos</strong>), o cartão <strong>Validação independente</strong>:
+        </p>
+        <ol>
+          <li>
+            Em <strong>Papel de cada análise</strong>, marque as corridas de <strong>calibração</strong> (as das curvas) e as
+            de <strong>validação</strong> (independentes: nunca usadas nas curvas) e toque em <strong>Guardar papéis</strong>.
+            Cada corrida tem um papel só; se uma de validação for ponto de uma curva usada, ela sai das métricas, com o motivo.
+          </li>
+          <li>
+            <strong>Modo cego</strong> (opcional): até revelar, as corridas de validação aparecem só como V01, V02… com a massa{' '}
+            <strong>encontrada</strong> — o nome do arquivo, a composição (proporções), a massa adicionada e a recuperação
+            ficam escondidos. Quais materiais há em cada corrida não dá para esconder: a deconvolução guiada precisa disso.
+          </li>
+          <li>
+            <strong>Quantificar a validação</strong> usa as curvas do estudo (no método escolhido no alto do cartão de
+            recuperação).
+          </li>
+          <li>
+            <strong>Revelar as respostas…</strong> (modo cego): as massas encontradas naquele momento ficam guardadas como a
+            resposta cega, e o conjunto de validação fica travado. Se depois uma deconvolução ou curva for refeita e a massa
+            mudar, a corrida aparece marcada "mudou depois da revelação".
+          </li>
+        </ol>
+        <p>Por material:</p>
+        <ul>
+          <li>
+            <strong>Recuperação</strong> média ± desvio, <strong>viés</strong> (encontrada − adicionada, em mg e %) e{' '}
+            <strong>RMSEP</strong> (raiz da média dos erros ao quadrado, mg);
+          </li>
+          <li>
+            <strong>precisão intermediária</strong> pela ANOVA de um fator com o <strong>dia</strong> (data da corrida) como
+            fator, sobre a recuperação: s_r (dentro do dia), s_entre dias e s_PI = √(s_r² + s_entre²) — precisa de pelo menos 2
+            dias e réplicas dentro do dia;
+          </li>
+          <li>
+            a regressão <strong>encontrada = a + b × adicionada</strong> (precisa de 3 ou mais massas diferentes) e o gráfico
+            com a reta 1:1 (tracejada), a regressão de cada material, as barras de U95 e a faixa do U95 relativo médio.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
     id: 'renomear',
     title: 'Renomear, mover e trocar a amostra (coordenação)',
     body: (

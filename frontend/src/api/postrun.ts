@@ -938,6 +938,65 @@ export const studyApi = {
     api.post<{ report: RecoveryReport; frozen: boolean }>(`/postrun/studies/${id}/report${method ? `?method=${method}` : ''}`),
   exportXlsx: (id: number) => api.getBlob(`/postrun/studies/${id}/export.xlsx`),
   sensitivity: (id: number, tolerances: number[]) => api.post<StudySensitivity>(`/postrun/studies/${id}/sensitivity`, { tolerances }),
+  // F3: validação independente
+  validationConfig: (id: number) => api.get<ValidationConfig>(`/postrun/studies/${id}/validation/config`),
+  setValidationConfig: (id: number, body: { roles: Record<string, ValidationRole>; blind: boolean }) =>
+    api.put<ValidationConfig>(`/postrun/studies/${id}/validation/config`, body),
+  validation: (id: number, method?: DeconvMethod) =>
+    api.post<ValidationReport>(`/postrun/studies/${id}/validation${method ? `?method=${method}` : ''}`),
+  revealValidation: (id: number, method?: DeconvMethod) =>
+    api.post<ValidationReport>(`/postrun/studies/${id}/validation/reveal${method ? `?method=${method}` : ''}`),
+}
+
+// ------------------------------------------------- F3: validação independente
+
+export type ValidationRole = 'calibracao' | 'validacao'
+
+export interface ValidationConfig {
+  roles: Record<string, ValidationRole>
+  blind: boolean
+  revealed_at: string | null
+  revealed_by: string | null
+}
+
+export interface ValidationRun {
+  token: string | null
+  code: string
+  label: string
+  day: string
+  included: boolean
+  reason: string | null
+  changed_since_reveal: boolean
+  materials: { material: string; found_mg: number | null; U95_mg: number | null; added_mg: number | null; recovery_pct: number | null; flags: string[] }[]
+}
+
+export interface ValidationMetrics {
+  material: string
+  n: number
+  n_days: number
+  bias_mg: number
+  bias_pct: number
+  rmsep_mg: number
+  recovery_mean: number
+  recovery_sd: number | null
+  slope: number | null
+  intercept: number | null
+  r2: number | null
+  mean_rel_U95_pct: number | null
+  anova: { k_days: number; n: number; s_r: number | null; s_between: number | null; s_ip: number | null; warnings: string[] }
+}
+
+export interface ValidationReport {
+  config: ValidationConfig
+  method: DeconvMethod
+  n_calibration: number
+  n_validation: number
+  hidden: boolean
+  runs: ValidationRun[]
+  metrics: ValidationMetrics[]
+  points: { material: string; added_mg: number; found_mg: number; U95_mg: number | null }[]
+  conflicts: string[]
+  warnings: string[]
 }
 
 /** Tolerância de largura ótima (23/10/2026): RMSE da recuperação × tolerância */

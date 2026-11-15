@@ -66,6 +66,7 @@ def _run_migrations() -> None:
     # Colunas novas de tabelas PRÓPRIAS deste módulo: uma linha por coluna, ex.
     #   _ensure_column("minha_tabela", "observacoes", "VARCHAR")
     _ensure_column("postruncurve", "limits", "VARCHAR", "''")  # F2 (14/11/2026)
+    _ensure_column("postrunstudy", "validation", "VARCHAR", "''")  # F3 (14/11/2026)
 
 
 def create_db_and_tables() -> None:
