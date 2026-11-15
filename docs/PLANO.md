@@ -127,7 +127,15 @@ Andamento da Fase 2 (14/11/2026):
   "revelar", que guarda as massas encontradas e trava o conjunto). Cartão
   "Validação independente" no detalhe do estudo, com o gráfico encontrada ×
   adicionada (1:1, regressão, U95). Manual atualizado.
-- ⬜ F4, F5.
+- ✅ F4: `PostrunRunRecord` (exclusão com motivo da lista + comentário obrigatório,
+  metadados: massa de matriz, lote, granulometria, operador, data) e
+  `PostrunExclusionLog` (histórico imutável) — tabelas novas, acompanham o
+  renomear; `routes_postrun_runs.py`; corrida excluída sai do relatório, da
+  validação e das curvas com o motivo; ficha da corrida na lista (etiqueta) e
+  "excluir…" em lote; Excel do estudo com as abas Arquivos e metadados (SHA-256 de
+  cada .B00), Parâmetros dos ajustes, Exclusões e histórico, e a versão do
+  GeoHorun em "Sobre" (`GEOHORUN_BUILD` opcional no ambiente). Manual atualizado.
+- ⬜ F5.
 
 ## Fase 3 — GeoWorks, núcleo
 

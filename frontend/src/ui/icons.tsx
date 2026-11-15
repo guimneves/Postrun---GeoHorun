@@ -139,3 +139,16 @@ export const IconManual = (p: P) => (
     <path d="M9 8h5M9 11h4" />
   </Base>
 )
+/** Ficha da corrida (metadados, exclusão). */
+export const IconTag = (p: P) => (
+  <Base {...p}>
+    <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z" />
+    <circle cx="8" cy="8" r="1.5" />
+  </Base>
+)
+export const IconBan = (p: P) => (
+  <Base {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="m6 6 12 12" />
+  </Base>
+)

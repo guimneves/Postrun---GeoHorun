@@ -236,6 +236,19 @@ def repoint_postrun(session: Session, old_token: str, new_token: str) -> None:
             calibration.source_points = json.dumps(points)
             session.add(calibration)
 
+    # F4: o registro de rastreabilidade e o histórico de exclusões acompanham
+    from app.db.models import PostrunExclusionLog, PostrunRunRecord
+
+    record = session.get(PostrunRunRecord, old_token)
+    if record is not None and session.get(PostrunRunRecord, new_token) is None:
+        moved_record = PostrunRunRecord(**{**record.model_dump(), "token": new_token})
+        session.delete(record)
+        session.flush()
+        session.add(moved_record)
+    for log in session.exec(select(PostrunExclusionLog).where(PostrunExclusionLog.token == old_token)).all():
+        log.token = new_token
+        session.add(log)
+
 
 def sample_corrections(session: Session) -> dict[int, tuple[str, int | None]]:
     """Entrada do histórico → (código da amostra certa, id na biblioteca),

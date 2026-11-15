@@ -305,6 +305,41 @@ class AnalysisRename(SQLModel, table=True):
     completed_at: Optional[datetime] = None
 
 
+class PostrunRunRecord(SQLModel, table=True):
+    """Rastreabilidade de uma corrida (F4 do artigo): exclusão com motivo e
+    comentário, e os metadados que o `.B00` não guarda. Tabela própria do
+    GeoHorun (não existe no RE7S). Excluída = fora do relatório, da validação
+    e das curvas, com o motivo visível; nada é apagado."""
+
+    token: str = Field(primary_key=True)
+    excluded: bool = False
+    exclusion_reason: str = ""  # chave de run_records.REASONS
+    exclusion_comment: str = ""
+    excluded_by: str = ""
+    excluded_at: Optional[datetime] = None
+    # metadados (vazio = não informado)
+    matrix_mass_mg: Optional[float] = None
+    polymer_lot: str = ""  # lote ou fabricante do polímero
+    granulometry: str = ""
+    operator: str = ""
+    run_date: str = ""  # data informada (vazio = a do .B00), AAAA-MM-DD
+    notes: str = ""
+    updated_by: str = ""
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class PostrunExclusionLog(SQLModel, table=True):
+    """Registro imutável de cada exclusão/restauração (F4) — quem, quando, por quê."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(index=True)
+    action: str  # "excluida" | "restaurada"
+    reason: str = ""
+    comment: str = ""
+    user: str = ""
+    at: datetime = Field(default_factory=utcnow, index=True)
+
+
 class PostrunB00Cache(SQLModel, table=True):
     """Cache do conteúdo bruto de um `.B00` já lido pelo Agente Horun
     (bug real de produção: `GET /postrun/analyses` fazia uma ida-e-volta

@@ -44,6 +44,7 @@ from app.api.routes_postrun_deconv import (
 )
 from app.api.routes_postrun_report import ReportIn, ReportOut, Stat, build_report
 from app.api.routes_postrun_report import _stat as _stat_of
+from app.api.study_trace import geohorun_version, trace_sheets
 from app.db.models import (
     PostrunCalibration,
     PostrunCurve,
@@ -512,7 +513,8 @@ def build_export(session: SessionDep, s: PostrunStudy) -> bytes:
 
     # Sobre — chave/valor (o importador do Resultados confere `formato`)
     about = [
-        ["formato", EXPORT_FORMAT], ["versao", EXPORT_VERSION], ["estudo", s.name], ["descricao", s.description],
+        ["formato", EXPORT_FORMAT], ["versao", EXPORT_VERSION], ["geohorun", geohorun_version()],
+        ["estudo", s.name], ["descricao", s.description],
         ["metodo", main], ["metodos_no_arquivo", ", ".join(reports)], ["canal", s.channel], ["status", s.status],
         ["criado_em", s.created_at.isoformat()],
         ["finalizado_em", s.finalized_at.isoformat() if s.finalized_at else ""],
@@ -741,6 +743,10 @@ def build_export(session: SessionDep, s: PostrunStudy) -> bytes:
     sheet("Calibrações STD", ["Id", "Nome", "Canal", "Modo", "k0", "k1", "R²", "Validada em", "Notas"], rows, {2: 30})
     sheet("Calibrações STD (pontos)", ["Id", "Calibração", "Padrão", "Análise", "Área", "Massa conhecida (mg)",
                                        "Massa da amostra (mg)"], cal_pts, {2: 30, 4: 60})
+
+    # F4: rastreabilidade — arquivos (SHA-256) e metadados, parâmetros dos ajustes, exclusões
+    for title, header, trace_rows, widths in trace_sheets(session, tokens, summaries, deconvs):
+        sheet(title, header, trace_rows, widths)
 
     buf = io.BytesIO()
     wb.save(buf)

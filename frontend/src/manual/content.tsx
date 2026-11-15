@@ -113,6 +113,43 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'ficha',
+    title: 'Ficha da corrida: metadados, exclusão com motivo e rastreabilidade',
+    body: (
+      <>
+        <p>
+          Passe o mouse numa análise da lista e toque na <strong>etiqueta</strong> para abrir a <strong>ficha da
+          corrida</strong>:
+        </p>
+        <ul>
+          <li>
+            <strong>Metadados</strong> que o .B00 não guarda: massa de matriz, lote/fabricante do polímero, granulometria,
+            operador(a), data (vazio = a do arquivo) e observações.
+          </li>
+          <li>
+            <strong>Exclusão</strong>: escolha o motivo (corrida falha, massa ausente, troca de nome suspeita ou outro) e
+            escreva um comentário — obrigatório. A corrida sai do relatório de recuperação, da validação e dos pontos das
+            curvas, sempre com o motivo à vista; nada é apagado e dá para <strong>restaurar</strong>. A lista mostra o selo
+            "excluída".
+          </li>
+          <li>
+            <strong>Histórico</strong>: cada exclusão e restauração, com quem e quando — não dá para apagar.
+          </li>
+        </ul>
+        <p>
+          Para excluir várias de uma vez, marque as análises e toque em <strong>excluir…</strong> (ao lado de "marcar
+          todas").
+        </p>
+        <p>
+          <strong>Relatório do projeto</strong>: o <strong>Exportar Excel completo</strong> do estudo traz as abas{' '}
+          <em>Arquivos e metadados</em> (com o SHA-256 de cada .B00 — prova de que o arquivo é o mesmo),{' '}
+          <em>Parâmetros dos ajustes</em> (janela, forma, modo, tolerâncias, chutes de centro, referências, R², BIC),{' '}
+          <em>Exclusões</em> e <em>Exclusões (histórico)</em>; a aba <em>Sobre</em> traz a versão do GeoHorun.
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'massa',
     title: 'Corrigir a massa de uma corrida',
     body: (

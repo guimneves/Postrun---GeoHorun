@@ -43,6 +43,8 @@ import { isStdJob, useJobScan } from '../hooks/usePostrunScan'
 import { inputClass, inputInlineClass, btnClass, btnPrimaryClass, iconBtnClass, linkBtnClass } from '../ui/classes'
 import { Segmented } from '../ui/Segmented'
 import { ManualTab } from './ManualTab'
+import { RunRecordModal } from '../components/RunRecordModal'
+import { runsApi, type RunRecord } from '../api/postrun'
 import {
   IconCalib,
   IconChevron,
@@ -58,6 +60,8 @@ import {
   IconSave,
   IconSearch,
   IconStudy,
+  IconTag,
+  IconBan,
   IconUndo,
 } from '../ui/icons'
 
@@ -260,6 +264,9 @@ export function PostRunPage() {
   const [sparklines, setSparklines] = useState<Record<string, number[] | null>>({})
   // "eliminar rapidamente" = esconder da lista (reversível, só no
   // navegador — nunca apaga o `.B00`).
+  // F4: ficha de rastreabilidade (exclusão com motivo, metadados) por corrida
+  const [runRecords, setRunRecords] = useState<Record<string, RunRecord>>({})
+  const [recordTokens, setRecordTokens] = useState<string[] | null>(null)
   const [hiddenTokens, setHiddenTokens] = useState<Set<string>>(() => {
     try {
       return new Set<string>(JSON.parse(localStorage.getItem('postrun-hidden-tokens') ?? '[]'))
@@ -891,6 +898,21 @@ export function PostRunPage() {
     [analyses, studyAnalyses],
   )
 
+  // F4: fichas (exclusão, metadados) das análises listadas
+  const listedKey = analyses.map((a) => a.token).join('|')
+  useEffect(() => {
+    const tokens = listedKey ? listedKey.split('|') : []
+    if (!tokens.length) return
+    let alive = true
+    runsApi
+      .records(tokens)
+      .then((rs) => alive && setRunRecords((prev) => ({ ...prev, ...Object.fromEntries(rs.map((r) => [r.token, r])) })))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [listedKey])
+
   function mergeAnalyses(items: AnalysisSummary[]) {
     const byToken = new Map(items.map((a) => [a.token, a]))
     setAnalyses((prev) => prev.map((a) => byToken.get(a.token) ?? a))
@@ -1405,6 +1427,16 @@ export function PostRunPage() {
               <button type="button" className={linkBtnClass} onClick={selectAllFiltered}>
                 marcar todas
               </button>
+              {openTokens.length > 0 && (
+                <button
+                  type="button"
+                  className={linkBtnClass}
+                  title="excluir ou restaurar as análises marcadas (com motivo e comentário)"
+                  onClick={() => setRecordTokens([...openTokens])}
+                >
+                  excluir…
+                </button>
+              )}
               <button type="button" className={linkBtnClass} onClick={clearSelection}>
                 limpar
               </button>
@@ -1573,6 +1605,14 @@ export function PostRunPage() {
                           <span className="block truncate font-mono text-[11.5px] font-medium text-[var(--color-text)]" title={a.filename}>
                             {a.filename.replace(/\.B00$/i, '')}
                           </span>
+                          {runRecords[a.token]?.excluded && (
+                            <span
+                              className="mt-0.5 inline-flex items-center gap-1 rounded bg-[var(--color-danger)]/10 px-1.5 text-[10px] font-medium text-[var(--color-danger)]"
+                              title={`${runRecords[a.token].exclusion_reason_label}: ${runRecords[a.token].exclusion_comment} (${runRecords[a.token].excluded_by})`}
+                            >
+                              <IconBan size={11} /> excluída — {runRecords[a.token].exclusion_reason_label}
+                            </span>
+                          )}
                           {a.renamed_from && (
                             <span className="block truncate text-[10px] italic text-[var(--color-text-dim)]">
                               renomeada de {a.renamed_from}
@@ -1603,6 +1643,15 @@ export function PostRunPage() {
                             hidden ? 'opacity-100' : 'opacity-0'
                           }`}
                         >
+                          <button
+                            type="button"
+                            title="ficha da corrida: metadados, exclusão com motivo, histórico"
+                            aria-label="ficha da corrida"
+                            className={`${iconBtnClass} hover:text-[var(--color-primary)]`}
+                            onClick={() => setRecordTokens([a.token])}
+                          >
+                            <IconTag size={14} />
+                          </button>
                           {isAdmin && (
                             <button
                               type="button"
@@ -2215,6 +2264,14 @@ export function PostRunPage() {
       )}
       {changingSample && (
         <ChangeSampleModal tokens={changingSample} onClose={() => setChangingSample(null)} onDone={handleSampleChanged} />
+      )}
+      {recordTokens && (
+        <RunRecordModal
+          tokens={recordTokens}
+          labelOf={(t) => (analysesByToken[t]?.filename ?? t).replace(/\.B00$/i, '')}
+          onClose={() => setRecordTokens(null)}
+          onChanged={(rs) => setRunRecords((prev) => ({ ...prev, ...Object.fromEntries(rs.map((r) => [r.token, r])) }))}
+        />
       )}
       {renaming && (
         <RenameAnalysisModal

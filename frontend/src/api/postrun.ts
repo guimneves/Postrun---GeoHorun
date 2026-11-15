@@ -1024,3 +1024,55 @@ export interface StudySensitivity {
   n_mixtures: number
   errors: string[]
 }
+
+// ------------------------------------------------- F4: rastreabilidade por corrida
+
+export type ExclusionReason = 'falha' | 'massa_ausente' | 'nome_suspeito' | 'outro'
+
+export interface RunRecord {
+  token: string
+  excluded: boolean
+  exclusion_reason: ExclusionReason | ''
+  exclusion_reason_label: string
+  exclusion_comment: string
+  excluded_by: string
+  excluded_at: string | null
+  matrix_mass_mg: number | null
+  polymer_lot: string
+  granulometry: string
+  operator: string
+  run_date: string
+  notes: string
+  updated_by: string
+  updated_at: string | null
+}
+
+export interface RunMetaIn {
+  token: string
+  matrix_mass_mg: number | null
+  polymer_lot: string
+  granulometry: string
+  operator: string
+  run_date: string
+  notes: string
+}
+
+export interface ExclusionLogEntry {
+  token: string
+  action: 'excluida' | 'restaurada'
+  reason: string
+  reason_label: string
+  comment: string
+  user: string
+  at: string
+}
+
+export const runsApi = {
+  reasons: () => api.get<Record<ExclusionReason, string>>('/postrun/runs/reasons'),
+  records: (tokens: string[]) => api.post<RunRecord[]>('/postrun/runs/records', tokens),
+  saveRecords: (items: RunMetaIn[]) => api.put<RunRecord[]>('/postrun/runs/records', items),
+  exclude: (tokens: string[], reason: ExclusionReason, comment: string) =>
+    api.post<RunRecord[]>('/postrun/runs/exclude', { tokens, reason, comment }),
+  restore: (tokens: string[], comment: string) => api.post<RunRecord[]>('/postrun/runs/restore', { tokens, comment }),
+  log: (tokens: string[]) => api.post<ExclusionLogEntry[]>('/postrun/runs/exclusions/log', tokens),
+}

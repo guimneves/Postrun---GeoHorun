@@ -35,7 +35,7 @@ from app.api.routes_postrun import (
 )
 from app.db.models import PostrunAnalysisMeta, PostrunCurve, PostrunRegion, Role
 from app.api.routes_postrun_deconv import check_method, saved_material_area
-from app.modules import postrun_b00, postrun_calc, postrun_limits, postrun_regression
+from app.modules import postrun_b00, postrun_calc, postrun_limits, postrun_regression, run_records
 
 router = APIRouter(prefix="/postrun", tags=["postrun"])
 
@@ -248,6 +248,7 @@ def _build(session: SessionDep, spec: CurveSpecIn) -> CurvePreviewOut:
     cache: dict[str, _AnalysisInfo] = {}
     points: list[CurvePointOut] = []
     cycles: dict[str, str] = {}
+    excluded = run_records.excluded_map(session, {p.region.token for p in spec.points})  # F4
     for p in spec.points:
         r = p.region
         if r.channel != spec.channel:
@@ -282,6 +283,8 @@ def _build(session: SessionDep, spec: CurveSpecIn) -> CurvePreviewOut:
             out.fraction = frac
         if not s.mass_mg or s.mass_mg <= 0:
             out.error = out.error or "massa zero no arquivo — corrija a massa"
+        if r.token in excluded:
+            out.error = excluded[r.token]  # corrida excluída (F4): fora do ajuste, com o motivo
         if out.error is None and out.fraction:
             out.x = s.mass_mg * out.fraction
             out.area_per_mg = out.area_s / out.x if out.x and out.area_s is not None else None

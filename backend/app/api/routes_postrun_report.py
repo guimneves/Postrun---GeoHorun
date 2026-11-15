@@ -27,7 +27,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.api.routes_postrun_curves import _AnalysisInfo, _fit_from_json, _info
 from app.api.routes_postrun_deconv import check_method, saved_row
 from app.db.models import PostrunCurve, PostrunDeconvolution, PostrunDeconvReference
-from app.modules import postrun_deconv, postrun_regression
+from app.modules import postrun_deconv, postrun_regression, run_records
 
 router = APIRouter(prefix="/postrun/report", tags=["postrun"])
 
@@ -227,8 +227,12 @@ def build_report(session: SessionDep, payload: ReportIn,
     deconv_rows: dict[str, PostrunDeconvolution] = {}
     group_cycle: dict[str, str] = {}
     method = check_method(payload.method)
+    excluded = run_records.excluded_map(session, set(payload.tokens))  # F4
 
     for token in dict.fromkeys(payload.tokens):
+        if token in excluded:
+            skipped.append(SkippedOut(token=token, reason=excluded[token]))
+            continue
         row = (rows_override or {}).get(token) or saved_row(session, token, payload.channel, method)
         if row is None:
             skipped.append(SkippedOut(
