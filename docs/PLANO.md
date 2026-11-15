@@ -88,8 +88,13 @@ Andamento (14/11/2026):
   banco de teste do RE7S (39 regiões, 66 deconvoluções… iguais);
 - ✅ compose de produção (Postgres, backup, porta estreita 8003 do Agente) e
   guia `docs/DEPLOY.md`;
-- ⬜ 7 no servidor: token nos dois `.env`, subir, migrar, cadastrar no Core,
-  enrolar o Agente, conferir — e só então retirar o PostRun do RE7S.
+- ✅ 7 troca feita no servidor (14/11/2026: GeoHorun em produção, dados migrados,
+  Agente com o bloco do GeoHorun); PostRun retirado do RE7S (commit 29bb61f —
+  `/postrun` leva ao GeoHorun; as tabelas `Postrun*` continuam no banco do RE7S
+  até o backup seguinte; os 4 `.B00` reais saíram dos testes de lá, ficam só no
+  histórico do git). Manual do PostRun passou para a aba **Manual** daqui.
+
+**Fase 1 concluída.**
 
 Bug corrigido na passagem (✅ GeoHorun; ✅ RE7S, commit 5f081d0): `analysis_rename.py:203-206` recria
 `PostrunAnalysisMeta` sem `file_mass_before_mg` e `component_masses` (perdidos

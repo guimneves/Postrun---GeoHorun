@@ -75,3 +75,20 @@ input[type='checkbox'] {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-strong) transparent;
 }
+
+/* Impressão do Manual: só o conteúdo (sem cabeçalho, abas, índice e rodapé). */
+@media print {
+  header,
+  footer,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+  .manual {
+    display: block !important;
+  }
+  .manual-section {
+    break-inside: avoid-page;
+    box-shadow: none !important;
+  }
+}

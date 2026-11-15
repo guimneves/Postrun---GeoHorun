@@ -131,3 +131,11 @@ export const IconAgent = (p: P) => (
     <path d="m9 10 2 2 4-4" />
   </Base>
 )
+/** Manual: livro aberto com marcador. */
+export const IconManual = (p: P) => (
+  <Base {...p}>
+    <path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
+    <path d="M5 18a2 2 0 0 1 2-2h11" />
+    <path d="M9 8h5M9 11h4" />
+  </Base>
+)

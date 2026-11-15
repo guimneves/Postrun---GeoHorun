@@ -42,6 +42,7 @@ import { fmtNum } from '../lib/postrunFormat'
 import { isStdJob, useJobScan } from '../hooks/usePostrunScan'
 import { inputClass, inputInlineClass, btnClass, btnPrimaryClass, iconBtnClass, linkBtnClass } from '../ui/classes'
 import { Segmented } from '../ui/Segmented'
+import { ManualTab } from './ManualTab'
 import {
   IconCalib,
   IconChevron,
@@ -50,6 +51,7 @@ import {
   IconEyeOff,
   IconFolder,
   IconIntegral,
+  IconManual,
   IconPencil,
   IconPyrogram,
   IconReport,
@@ -220,7 +222,7 @@ export function PostRunPage() {
 
   const [working, setWorking] = useState<Record<string, WorkingRegion>>({})
   // Pedido do usuário: uma aba só de calibração, além da de análises
-  const [tab, setTab] = useState<'analises' | 'estudos' | 'deconv' | 'curvas' | 'relatorio' | 'calibracao'>('analises')
+  const [tab, setTab] = useState<'analises' | 'estudos' | 'deconv' | 'curvas' | 'relatorio' | 'calibracao' | 'manual'>('analises')
   // Estudos (pedido do usuário, 22/10/2026): o estudo aberto no workspace —
   // abre as análises dele (como um job) e restringe referências e curvas
   const [studies, setStudies] = useState<Study[]>([])
@@ -1197,6 +1199,7 @@ export function PostRunPage() {
                 ['curvas', 'Curvas', IconCurve],
                 ['relatorio', 'Relatório', IconReport],
                 ['calibracao', 'Calibração', IconCalib],
+                ['manual', 'Manual', IconManual],
               ] as const
             ).map(([value, label, Icon]) => {
               const active = tab === value
@@ -1308,6 +1311,8 @@ export function PostRunPage() {
           tokens={openTokens}
         />
       )}
+
+      {tab === 'manual' && <ManualTab />}
 
       {tab === 'calibracao' && (
         <CalibrationTab
