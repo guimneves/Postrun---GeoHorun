@@ -163,7 +163,14 @@ Andamento da Fase 4 (P2 do artigo, 14/11/2026):
   molde (dp da recuperação), incerteza combinada por mistura (u_ajuste ⊕ u_molde) e
   comparação com outro molde (correlação, L2, posição do máximo, Δ recuperação).
   `_compute`/`_references` aceitam `ref_override` (moldes em memória). Painel no estudo.
-- ⬜ F9.
+- ✅ F9: `routes_postrun_identifiability.py` — correlação das áreas por material
+  (da covariância do ajuste salvo; |ρ| > 0,9 → reportar a soma, com a recuperação
+  da soma ao lado) e bootstrap dos resíduos em blocos (`_compute(y_override=…)`):
+  massa de cada material com IC 95 %, CV de cada um e da soma, nuvem A × B.
+  Painel no estudo; bootstrap até 200 reamostragens (tempo-limite do proxy do Core).
+
+**P2 do artigo (F6–F9) concluída.** Próximos: P3 (F10–F12) ou Fase 3 (GeoWorks,
+precisa do livro do Rock-Eval).
 
 ## Fase 3 — GeoWorks, núcleo
 

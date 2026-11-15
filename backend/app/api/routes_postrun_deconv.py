@@ -291,7 +291,9 @@ def _peak_values(t: np.ndarray, pk: dict, shape: str) -> np.ndarray:
 
 
 def _compute(session: SessionDep, spec: DeconvSpecIn,
-             ref_override: dict[int, PostrunDeconvReference] | None = None) -> DeconvOut:
+             ref_override: dict[int, PostrunDeconvReference] | None = None,
+             y_override: np.ndarray | None = None) -> DeconvOut:
+    # `y_override`: sinal substituto na mesma janela (bootstrap dos resíduos, F9)
     _validate(spec)
     _check_region_token(session, spec.token)
     try:
@@ -299,6 +301,10 @@ def _compute(session: SessionDep, spec: DeconvSpecIn,
     except postrun_b00.B00ParseError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     xs, y, t, temps, tb = _window(analysis, spec)
+    if y_override is not None:
+        if len(y_override) != len(y):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "sinal substituto com tamanho diferente da janela")
+        y = np.asarray(y_override, dtype=float)
     rate_c_per_s = (analysis.header.cycle_pyro.rate / 60.0) if analysis.header.cycle_pyro else 25 / 60.0
 
     refs: dict[int, PostrunDeconvReference] = {}

@@ -18,6 +18,7 @@ import { PostRunValidationPanel } from './PostRunValidationPanel'
 import { PostRunModelCompare } from './PostRunModelCompare'
 import { PostRunInteractionPanel } from './PostRunInteractionPanel'
 import { PostRunRobustnessPanel } from './PostRunRobustnessPanel'
+import { PostRunIdentifiabilityPanel } from './PostRunIdentifiabilityPanel'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 const xBtn = 'rounded px-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] disabled:opacity-30'
@@ -511,6 +512,20 @@ export function PostRunStudiesTab({
                   incerteza combinada. Opcional: compara com o molde de outro lote, grade ou granulometria.
                 </p>
                 <PostRunRobustnessPanel key={detail.id} studyId={detail.id} analyses={detail.analyses} />
+              </div>
+            )}
+
+            {/* F9: identificabilidade */}
+            {detail.tokens.length > 0 && (
+              <div className={cardClass}>
+                <h3 className="mb-1 font-semibold">Identificabilidade</h3>
+                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
+                  Picos muito sobrepostos (ex.: PEAD e PP): o ajuste acerta o total, mas não sabe dividir a área — as áreas saem
+                  fortemente correlacionadas. Com |ρ| &gt; 0,9, reporte a soma do par. O bootstrap dos resíduos reajusta a mistura
+                  muitas vezes e mostra quanto a massa de cada material (e a da soma) varia —{' '}
+                  {METHOD_LABEL[viewMethod ?? detail.method]}.
+                </p>
+                <PostRunIdentifiabilityPanel key={`${detail.id}-${viewMethod ?? detail.method}`} studyId={detail.id} method={viewMethod ?? detail.method} />
               </div>
             )}
 

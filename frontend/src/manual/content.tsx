@@ -555,6 +555,34 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'identificabilidade',
+    title: 'Identificabilidade (pares mal condicionados, bootstrap)',
+    body: (
+      <>
+        <p>
+          Quando dois materiais têm picos muito sobrepostos (PEAD e PP, por exemplo), o ajuste acerta o total mas não sabe
+          dividir a área entre eles: uma recuperação sai alta e a outra baixa, e a soma continua boa. No detalhe de um
+          estudo, <strong>Identificabilidade</strong> → <strong>Diagnosticar</strong>:
+        </p>
+        <ul>
+          <li>
+            para cada mistura e par de materiais, a <strong>correlação entre as áreas</strong> (ρ) no ajuste salvo —
+            vermelho com |ρ| &gt; 0,9 —, a recuperação de cada um e a <strong>da soma</strong>;
+          </li>
+          <li>
+            a <strong>recomendação</strong> de reportar a soma do par quando ele é mal condicionado na maioria das misturas;
+          </li>
+          <li>
+            <strong>bootstrap</strong> (uma mistura): o sinal ajustado + os resíduos reamostrados em blocos de pontos
+            vizinhos, reajustado 50 a 200 vezes; mostra a massa de cada material com o intervalo de 95 %, o desvio da
+            recuperação, o CV de cada um e o da soma, e a nuvem massa A × massa B do par mais correlacionado (a "banana":
+            uma linha descendente = só a soma é determinada).
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
     id: 'publicacao',
     title: 'Figuras e tabelas para publicação',
     body: (

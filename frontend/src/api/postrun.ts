@@ -1164,3 +1164,36 @@ export const robustnessApi = {
   run: (studyId: number, material: string, altReferenceId: number | null) =>
     api.post<RobustnessResult>(`/postrun/studies/${studyId}/template-robustness`, { material, alt_reference_id: altReferenceId }),
 }
+
+// ------------------------------------------------- F9: identificabilidade
+
+export interface IdentifiabilityResult {
+  method: DeconvMethod
+  runs: {
+    token: string
+    filename: string
+    composition_text: string
+    materials: string[]
+    correlation: number[][]
+    pairs: { a: string; b: string; rho: number; ill_conditioned: boolean; recovery_a: number | null; recovery_b: number | null; recovery_sum: number | null }[]
+    error: string | null
+  }[]
+  recommendations: string[]
+}
+
+export interface BootstrapResult {
+  token: string
+  filename: string
+  n_ok: number
+  n_failed: number
+  materials: { material: string; expected_mg: number | null; found_mean: number | null; found_sd: number | null; found_p2_5: number | null; found_p97_5: number | null; recovery_sd_pct: number | null }[]
+  pairs: { a: string; b: string; rho: number | null; sum_sd: number | null; sum_cv_pct: number | null; a_cv_pct: number | null; b_cv_pct: number | null }[]
+  samples: Record<string, number[]>
+}
+
+export const identifiabilityApi = {
+  run: (studyId: number, method?: DeconvMethod) =>
+    api.post<IdentifiabilityResult>(`/postrun/studies/${studyId}/identifiability${method ? `?method=${method}` : ''}`),
+  bootstrap: (studyId: number, token: string, method: DeconvMethod, nBoot: number) =>
+    api.post<BootstrapResult>(`/postrun/studies/${studyId}/identifiability/bootstrap`, { token, method, n_boot: nBoot }),
+}
