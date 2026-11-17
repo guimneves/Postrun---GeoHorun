@@ -71,10 +71,26 @@ def test_compare_models_on_the_same_data(user_client, jobs):
     assert len(saved) == 1
 
 
+def test_compare_models_with_only_mixtures_in_the_study_uses_the_reference_runs(user_client, jobs):
+    """16/11/2026 — "tem dois moldes e duas curvas salvas": o estudo guardou só
+    as misturas; os puros que formaram as referências dele entram sozinhos."""
+    pures, mixes = _build(user_client, jobs)
+    s = user_client.post("/api/postrun/studies", json={"name": "só misturas", "method": "molde"}).json()
+    user_client.post(f"/api/postrun/studies/{s['id']}/collect", json={"tokens": mixes})
+    detail = user_client.get(f"/api/postrun/studies/{s['id']}").json()
+    assert detail["reference_ids"] and set(detail["tokens"]) == set(mixes)
+    r = user_client.post(f"/api/postrun/studies/{s['id']}/compare-models", json={"models": ["molde", "gauss"]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["n_pure"] == 5 and body["n_mixtures"] == 3
+
+
 def test_compare_models_needs_pures_and_mixtures(user_client, jobs):
     s = user_client.post("/api/postrun/studies", json={"name": "vazio", "method": "molde"}).json()
     user_client.post(f"/api/postrun/studies/{s['id']}/collect", json={"tokens": [T1, T2]})
     r = user_client.post(f"/api/postrun/studies/{s['id']}/compare-models", json={"models": ["molde"]})
     assert r.status_code == 400
+    # a mensagem diz o que faltou, não só "precisa de puros e misturas"
+    assert "Encontrei 0 pura(s) e 0 mistura(s)" in r.json()["detail"]
     r = user_client.post(f"/api/postrun/studies/{s['id']}/compare-models", json={"models": ["inexistente"]})
     assert r.status_code == 400

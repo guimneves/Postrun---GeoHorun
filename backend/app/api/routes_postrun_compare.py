@@ -31,7 +31,9 @@ from app.api.routes_postrun_curves import _AnalysisInfo, _fit_out, _info
 from app.api.routes_postrun_deconv import DeconvSpecIn, _compute, saved_row
 from app.api.routes_postrun_report import ReportIn, build_report
 from app.api.routes_postrun_study import _get, _ids
-from app.db.models import PostrunCurve, PostrunDeconvolution
+from sqlmodel import select
+
+from app.db.models import PostrunCurve, PostrunDeconvolution, PostrunDeconvReference
 from app.modules import postrun_regression
 
 router = APIRouter(prefix="/postrun/studies", tags=["postrun"])
@@ -93,20 +95,43 @@ def _stat(xs: list[float]) -> Stat:
 
 
 def _base_row(session: SessionDep, token: str, channel: str) -> PostrunDeconvolution | None:
-    """Janela e referências salvas da corrida: a do molde, senão a da gaussiana guiada."""
-    for method in ("molde", "gauss"):
-        row = saved_row(session, token, channel, method)
-        if row is not None and json.loads(row.reference_ids or "[]"):
-            return row
-    return None
+    """Janela salva da corrida: a do molde, senão a da gaussiana (de preferência
+    uma que já use referências — a gaussiana LIVRE dos puros também serve: a
+    referência vem do material, ver `_refs_for`)."""
+    rows = [r for m in ("molde", "gauss") if (r := saved_row(session, token, channel, m)) is not None]
+    with_refs = [r for r in rows if json.loads(r.reference_ids or "[]")]
+    return (with_refs or rows or [None])[0]
 
 
-def _spec_for(row: PostrunDeconvolution, model: dict) -> DeconvSpecIn:
+def _refs_for(session: SessionDep, row: PostrunDeconvolution, materials: list[str], cycle_key: str,
+              study_refs: list[PostrunDeconvReference]) -> list[int]:
+    """Referências do ajuste: as que a deconvolução salva já usa; senão, a de
+    cada material neste ciclo — a do estudo primeiro, depois a mais recente."""
+    ids = json.loads(row.reference_ids or "[]")
+    if ids:
+        return ids
+    out: list[int] = []
+    for mat in materials:
+        ref = next((r for r in study_refs if r.name == mat and r.cycle_key == cycle_key and r.channel == row.channel), None)
+        if ref is None:
+            ref = session.exec(
+                select(PostrunDeconvReference).where(
+                    PostrunDeconvReference.name == mat, PostrunDeconvReference.channel == row.channel,
+                    PostrunDeconvReference.cycle_key == cycle_key,
+                ).order_by(PostrunDeconvReference.created_at.desc())
+            ).first()
+        if ref is None:
+            return []
+        out.append(ref.id)
+    return out
+
+
+def _spec_for(row: PostrunDeconvolution, model: dict, ref_ids: list[int]) -> DeconvSpecIn:
     return DeconvSpecIn(
         token=row.token, channel=row.channel, start_idx=row.start_idx, end_idx=row.end_idx,
         baseline_mode=row.baseline_mode, fixed_baseline=row.fixed_baseline,
         shape=model.get("shape", "gaussian"), mode=model["mode"], n_peaks=row.n_peaks,
-        reference_ids=json.loads(row.reference_ids or "[]"),
+        reference_ids=ref_ids,
         tol_c=FIXED_C if model.get("fix_c") else row.tol_c,
         tol_width_pct=FIXED_W if model.get("fix_s") else row.tol_width_pct,
     )
@@ -131,24 +156,52 @@ def compare_models(study_id: int, payload: CompareIn, session: SessionDep, _user
     infos: dict[str, _AnalysisInfo] = {}
     pure: dict[str, tuple[str, PostrunDeconvolution]] = {}  # token -> (material, linha base)
     mixes: dict[str, PostrunDeconvolution] = {}
+    ref_ids_of: dict[str, list[int]] = {}
     warnings: list[str] = []
-    for t in _ids(s.tokens):
+    study_refs = [r for rid in _ids(s.reference_ids) if (r := session.get(PostrunDeconvReference, rid)) is not None]
+    study_curves = [c for cid in _ids(s.curve_ids) if (c := session.get(PostrunCurve, cid)) is not None]
+    # os puros (16/11/2026 — "tem dois moldes e duas curvas salvas"): os do
+    # estudo E as corridas puras que formaram as referências e as curvas dele,
+    # mesmo que não tenham sido guardadas no estudo
+    tokens = list(_ids(s.tokens))
+    extra = [t for r in study_refs for t in json.loads(r.tokens or "[]")]
+    extra += [p.get("token") for c in study_curves for p in json.loads(c.points or "[]") if p.get("token")]
+    tokens += [t for t in dict.fromkeys(extra) if t not in tokens]
+    why: dict[str, int] = {"sem composição": 0, "sem proporção": 0, "sem deconvolução salva": 0, "sem referência": 0}
+    for t in tokens:
         try:
-            comp = _info(session, t, infos).summary.composition or {}
+            sm = _info(session, t, infos).summary
         except HTTPException as exc:
             warnings.append(f"{t}: {exc.detail}")
             continue
-        row = _base_row(session, t, s.channel)
-        if row is None or not comp:
+        comp = sm.composition or {}
+        if not comp:
+            why["sem proporção" if len(sm.components) > 1 else "sem composição"] += 1
             continue
+        row = _base_row(session, t, s.channel)
+        if row is None:
+            why["sem deconvolução salva"] += 1
+            continue
+        refs = _refs_for(session, row, list(comp), sm.cycle_key, study_refs)
+        if not refs:
+            why["sem referência"] += 1
+            continue
+        ref_ids_of[t] = refs
         if len(comp) == 1:
             pure[t] = (next(iter(comp)), row)
         else:
             mixes[t] = row
     if not pure or not mixes:
+        detail = [f"{n} {k}" for k, n in why.items() if n]
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "O estudo precisa de puros e misturas com deconvolução salva (molde ou gaussiana guiada, com referências).",
+            "Para comparar os modelos são precisos corridas puras (para as curvas) e misturas (para a recuperação), "
+            "cada uma com a deconvolução salva e referência do material. "
+            f"Encontrei {len(pure)} pura(s) e {len(mixes)} mistura(s) prontas"
+            + (f" — ficaram de fora: {', '.join(detail)}" if detail else "")
+            + (". Faltam as misturas: guarde no estudo as misturas já ajustadas (passo 2 da aba Deconvolução)."
+               if not mixes else
+               ". Faltam os puros: guarde no estudo as corridas puras (ou crie as referências e curvas pelos passos 1 e 3).")
         )
     saved_settings = {c.component: (c.model, c.weighting) for cid in _ids(s.curve_ids)
                       if (c := session.get(PostrunCurve, cid)) is not None and c.component}
@@ -161,7 +214,7 @@ def compare_models(study_id: int, payload: CompareIn, session: SessionDep, _user
         rows: dict[str, PostrunDeconvolution] = {}
         failed = 0
         for t, row in [*((t, r) for t, (_, r) in pure.items()), *mixes.items()]:
-            spec = _spec_for(row, model)
+            spec = _spec_for(row, model, ref_ids_of[t])
             try:
                 rows[t] = _memory_row(row, spec, _compute(session, spec), method)
             except HTTPException as exc:
