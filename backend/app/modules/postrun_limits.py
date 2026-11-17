@@ -1,7 +1,8 @@
 """Brancos de matriz e limites de detecção/quantificação (F2 do artigo).
 
 Entradas: as massas APARENTES dos brancos (área de cada branco de matriz —
-sílica — no intervalo da curva, convertida em massa pela própria curva), as
+a matriz das amostras sem o analito, qualquer que seja — no intervalo da
+curva, convertida em massa pela própria curva), as
 dos níveis baixos (opcional) e a massa de matriz por cadinho.
 
 Dois critérios, lado a lado, sempre com o nome de quem define:

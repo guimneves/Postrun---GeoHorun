@@ -60,14 +60,53 @@ def test_composition_from_names(filename, sample, expected, nominal):
 
 
 def test_composition_unknown_and_typed():
-    assert postrun_composition.from_names("2026-06-19_PP+PS_1.B00", "PP + PS") is None
+    # mistura sem proporção: os componentes são conhecidos, a proporção não
+    no_ratio = postrun_composition.from_names("2026-06-19_PP+PS_1.B00", "PP + PS")
+    assert no_ratio is not None and not no_ratio.complete and no_ratio.names == ["PP", "PS"]
+    assert no_ratio.text == "PP + PS (sem proporção)"
     assert postrun_composition.parse_text("PEAD 50, PP 25, PS 25").components == pytest.approx(
         {"PEAD": 0.5, "PP": 0.25, "PS": 0.25}
     )
     assert postrun_composition.parse_text("ps").components == {"PS": 1.0}
     assert postrun_composition.parse_text("PP_PS_75-25").components == pytest.approx({"PP": 0.75, "PS": 0.25})
+    typed = postrun_composition.parse_text("PP, PS")
+    assert not typed.complete and typed.to_json_dict() == {"PP": None, "PS": None}
+    assert postrun_composition.parse_text("PP + PS").names == ["PP", "PS"]
     with pytest.raises(postrun_composition.CompositionError):
         postrun_composition.parse_text("PP 50, PS")
+    # porcentagens que não somam 100 viram proporção — e a nota diz
+    odd = postrun_composition.parse_text("PP 50, PS 30")
+    assert odd.components == pytest.approx({"PP": 0.625, "PS": 0.375}) and "somavam 80" in odd.note
+
+
+@pytest.mark.parametrize(
+    ("filename", "names", "complete"),
+    [
+        ("2026-07-17_PEAD_rep_2.B00", ["PEAD"], True),  # "rep" não é material: ignorado
+        ("2026-07-17_PP_PS_1.B00", ["PP", "PS"], False),  # dois materiais, sem proporção
+        ("2026-07-17_PE+PP+PS_3.B00", ["PE", "PP", "PS"], False),
+        ("2026-07-17_Parafina4_1.B00", None, None),  # nada conhecido: não identificada
+        ("2026-07-17_160k_2.B00", None, None),
+        ("2026-07-17_vide_1.B00", None, None),
+        ("2026-07-17_PP_PS_75_1.B00", ["PP", "PS"], False),
+    ],
+)
+def test_composition_only_known_materials_without_ratio(filename, names, complete):
+    reading = postrun_composition.read_names(filename, "")
+    if names is None:
+        assert reading.composition is None and "nenhum material conhecido" in reading.note
+    else:
+        assert reading.composition.names == names and reading.composition.complete is complete
+
+
+def test_composition_learns_a_new_material():
+    assert postrun_composition.from_names("2026-07-17_PBX_1.B00", "") is None
+    c = postrun_composition.from_names("2026-07-17_PBX_1.B00", "", known={"PBX"})
+    assert c is not None and c.components == {"PBX": 1.0}
+    # com a proporção no nome, qualquer nome vale (é explícito)
+    assert postrun_composition.from_names("2026-07-17_AAA_BBB_60-40_1.B00", "").components == pytest.approx(
+        {"AAA": 0.6, "BBB": 0.4}
+    )
 
 
 # ------------------------------------------------------------------ regressão
@@ -122,9 +161,21 @@ def test_meta_corrects_mass_and_composition(user_client, jobs):
     assert listed[T1]["mass_mg"] == 12.5 and listed[T2]["mass_source"] == "arquivo"
     assert listed[T2]["cycle_key"].startswith("BULK ROCK | BASIC | P 300/3/25/650/0")
     back = _set_mass(user_client, T1, None, "")
-    assert back["mass_source"] == "arquivo" and back["composition"] == {"STDA": 1.0}
+    # "STDA" não é um material conhecido — sem composição, e a tela diz por quê
+    assert back["mass_source"] == "arquivo" and back["composition"] is None
+    assert back["composition_status"] == "desconhecida" and "nenhum material conhecido" in back["composition_note"]
     bad = user_client.put("/api/postrun/analyses/meta", json=[{"token": T1, "composition_text": "PP 50, PS"}])
     assert bad.status_code == 400
+
+
+def test_meta_composition_without_ratio_and_learned_material(user_client, jobs):
+    out = _set_mass(user_client, T1, 10.0, "PP, PS")
+    assert out["composition"] is None and out["components"] == ["PP", "PS"]
+    assert out["composition_status"] == "sem_proporcao" and out["composition_text"] == "PP + PS (sem proporção)"
+    # informar STDA numa corrida ensina o material: a outra (STDA no nome) passa a ser lida sozinha
+    _set_mass(user_client, T1, 10.0, "STDA")
+    listed = {a["token"]: a for a in user_client.get("/api/postrun/analyses", params={"job": JOB_STD}).json()}
+    assert listed[T2]["composition"] == {"STDA": 1.0} and listed[T2]["composition_source"] == "nome do arquivo"
 
 
 def _spec(points, **extra):

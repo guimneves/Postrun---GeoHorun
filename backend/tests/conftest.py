@@ -147,6 +147,9 @@ def db_engine():
     create_db_and_tables()
     SQLModel.metadata.drop_all(engine)
     create_db_and_tables()
+    from app.api.routes_postrun import forget_known_materials
+
+    forget_known_materials()  # materiais conhecidos de um teste não vazam para o próximo
     return engine
 
 

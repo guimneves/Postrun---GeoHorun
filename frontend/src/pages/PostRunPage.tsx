@@ -31,6 +31,7 @@ import { PostRunScanBar } from '../components/PostRunScanBar'
 import { PostRunCurvesTab, type WorkspaceGaussian, type WorkspacePoint } from '../components/PostRunCurvesTab'
 import { PostRunDeconvTab } from '../components/PostRunDeconvTab'
 import { PostRunMassEdit } from '../components/PostRunMassEdit'
+import { PostRunCompositionEdit } from '../components/PostRunCompositionEdit'
 import { PostRunDeconvPanel, type DeconvEntry, type DeconvWindow } from '../components/PostRunDeconvPanel'
 import { PostRunReportTab } from '../components/PostRunReportTab'
 import { PostRunStudiesTab } from '../components/PostRunStudiesTab'
@@ -230,14 +231,9 @@ export function PostRunPage() {
   // Estudos (pedido do usuário, 22/10/2026): o estudo aberto no workspace —
   // abre as análises dele (como um job) e restringe referências e curvas
   const [studies, setStudies] = useState<Study[]>([])
-  const [activeStudyId, setActiveStudyId] = useState<number | null>(() => {
-    try {
-      const v = localStorage.getItem('postrun-study')
-      return v ? Number(v) : null
-    } catch {
-      return null
-    }
-  })
+  // nenhum estudo ativo ao entrar (pedido do usuário, 16/11/2026): a pessoa
+  // ativa um estudo à mão; antes o último ficava lembrado e reabria sozinho
+  const [activeStudyId, setActiveStudyId] = useState<number | null>(null)
   // resumos das análises do estudo (podem ser de outros jobs)
   const [studyAnalyses, setStudyAnalyses] = useState<Record<string, AnalysisSummary>>({})
   // qual deconvolução salva a aba Análises mostra: gaussiana ou molde (as
@@ -447,10 +443,9 @@ export function PostRunPage() {
   function rememberStudy(id: number | null) {
     setActiveStudyId(id)
     try {
-      if (id === null) localStorage.removeItem('postrun-study')
-      else localStorage.setItem('postrun-study', String(id))
+      localStorage.removeItem('postrun-study') // chave antiga (o estudo reabria sozinho)
     } catch {
-      // sem localStorage: só não lembra
+      // sem localStorage: nada a limpar
     }
   }
 
@@ -475,12 +470,6 @@ export function PostRunPage() {
     setOpenTokens([])
     setActiveToken(null)
   }
-
-  // estudo lembrado: reabre ao voltar à página
-  useEffect(() => {
-    if (activeStudyId !== null) void openStudy(activeStudyId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // referências e curvas: com um estudo aberto, as dele + as de nenhum estudo;
   // sem estudo, somem as de estudos finalizados (ficam guardadas lá)
@@ -1633,9 +1622,9 @@ export function PostRunPage() {
                               className="font-medium tabular-nums text-[var(--color-text)]"
                             />
                           </span>
-                          {a.composition_text && a.composition && Object.keys(a.composition).length > 1 && (
-                            <span className="block text-[10px] text-[var(--color-text-dim)]">{a.composition_text}</span>
-                          )}
+                          <span className="mt-0.5 block">
+                            <PostRunCompositionEdit token={a.token} summary={a} onSaved={mergeAnalyses} compact />
+                          </span>
                         </span>
                         {/* ações da linha: aparecem por cima ao passar o mouse */}
                         <span
@@ -2484,7 +2473,7 @@ function StudyBar({
         value={activeStudyId ?? ''}
         onChange={(e) => onChoose(e.target.value ? Number(e.target.value) : null)}
       >
-        <option value="">— nenhum (workspace solto) —</option>
+        <option value="">— nenhum estudo ativo —</option>
         {studies.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name} ({s.tokens.length}){s.status === 'finalizado' ? ' · finalizado' : ''}
@@ -2508,7 +2497,7 @@ function StudyBar({
           )}
         </>
       ) : (
-        <span className="text-xs text-[var(--color-text-muted)]">escolha um estudo para abrir tudo o que ele guarda</span>
+        <span className="text-xs text-[var(--color-text-muted)]">escolha um estudo para ativá-lo (abre tudo o que ele guarda)</span>
       )}
       <button type="button" className={`${linkBtnClass} ml-auto`} onClick={onGoToStudies}>
         Estudos →

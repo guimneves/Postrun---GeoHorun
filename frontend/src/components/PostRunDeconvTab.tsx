@@ -13,6 +13,7 @@ import {
 } from '../api/postrun'
 import { PostRunReferencesTab } from './PostRunReferencesTab'
 import { PostRunReportTab } from './PostRunReportTab'
+import { PostRunCompositionEdit } from './PostRunCompositionEdit'
 import { inputInlineClass as inputClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 // Aba Deconvolução do PostRun (pedido do usuário, 17/10/2026): molde,
@@ -142,7 +143,8 @@ export function PostRunDeconvTab({
   const names = useMemo(() => Object.fromEntries(runs.map((r) => [r.token, short(r.filename)])), [runs])
   const pure = runs.filter((r) => r.kind === 'pure')
   const mixtures = runs.filter((r) => r.kind === 'mixture')
-  const unknown = runs.filter((r) => r.kind === 'unknown')
+  const noRatio = runs.filter((r) => r.kind === 'no_ratio')
+  const unknown = runs.filter((r) => r.kind === 'unknown' && !r.error)
   const noRegion = runs.filter((r) => !r.has_region)
   const pureByMat = useMemo(() => {
     const m = new Map<string, number>()
@@ -158,7 +160,7 @@ export function PostRunDeconvTab({
   const needed = useMemo(() => {
     const out: { material: string; cycle_key: string; cycle_label: string }[] = []
     for (const r of runs)
-      for (const mat of Object.keys(r.composition ?? {}))
+      for (const mat of r.components ?? Object.keys(r.composition ?? {}))
         if (r.cycle_key && !out.some((n) => n.material === mat && n.cycle_key === r.cycle_key))
           out.push({ material: mat, cycle_key: r.cycle_key, cycle_label: r.cycle_label })
     return out.sort((a, b) => a.material.localeCompare(b.material))
@@ -262,6 +264,16 @@ export function PostRunDeconvTab({
             </span>
           ))}
           <span className="rounded-full border px-2 py-0.5 border-[var(--color-border)]">misturas · {mixtures.length}</span>
+          {noRatio.length > 0 && (
+            <button
+              type="button"
+              className="rounded-full border px-2 py-0.5 text-[#b26a00] border-[#b26a00]"
+              title="sabe-se o que tem, não a proporção: os picos são separados e a massa de cada um sai da curva, sem recuperação"
+              onClick={() => setShowRuns(true)}
+            >
+              misturas sem proporção · {noRatio.length}
+            </button>
+          )}
           {failed.length > 0 && (
             <span className="rounded-full border px-2 py-0.5" style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
               title={failed.map((r) => `${short(r.filename)}: ${r.error}`).join('\n')}>
@@ -269,9 +281,14 @@ export function PostRunDeconvTab({
             </span>
           )}
           {unknown.length > 0 && (
-            <span className="rounded-full border px-2 py-0.5" style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}>
-              sem composição · {unknown.length} (informe na aba Curvas)
-            </span>
+            <button
+              type="button"
+              className="rounded-full border border-dashed px-2 py-0.5 border-[var(--color-border)] text-[var(--color-text-muted)]"
+              title="nenhum material conhecido no nome: ficam fora das referências, ajustes e curvas. Se alguma for de um material, clique na composição dela na lista e informe."
+              onClick={() => setShowRuns(true)}
+            >
+              sem composição · {unknown.length} — ficam de fora (brancos, rochas…); para incluir, clique na composição
+            </button>
           )}
           {noRegion.length > 0 && (
             <span className="rounded-full border px-2 py-0.5" style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}>
@@ -287,6 +304,40 @@ export function PostRunDeconvTab({
             </span>
           )}
         </div>
+        <details className="mt-2 text-xs text-[var(--color-text-muted)]">
+          <summary className="cursor-pointer">Como o Horun lê a composição (e como corrigir)</summary>
+          <div className="mt-1 flex flex-col gap-1 pl-3">
+            <p>
+              A composição de cada corrida diz <strong>quais materiais procurar</strong> e <strong>quanto se esperava</strong> de
+              cada um. Ela vem do nome do arquivo — ou do que você informar, que sempre vale mais.
+            </p>
+            <ul className="list-disc pl-4">
+              <li>
+                <strong>Com a proporção no nome</strong> — <code>PEAD_PP_PS_50-25-25_1</code>: PEAD 50 %, PP 25 %, PS 25 %. Os
+                nomes antes dos números são os componentes, quaisquer que sejam.
+              </li>
+              <li>
+                <strong>Sem a proporção</strong> — <code>PP_PS_1</code> ou <code>PP+PS_1</code>: PP e PS, proporção não
+                informada. Os picos são separados e a massa de cada um sai da curva, mas a recuperação precisa da proporção.
+              </li>
+              <li>
+                <strong>Puro</strong> — <code>PS_1</code>, <code>PEAD_040_2</code> (040 = 4,0 mg nominais). Só vale um nome
+                que seja um <strong>material conhecido</strong>: os polímeros comuns (PE, PEAD, PEBD, PP, PS, PET, PVC, PA, PC,
+                PMMA, PLA, ABS…) e todo material que o laboratório já informou. Pedaços que não são material ("rep", "A") são
+                ignorados.
+              </li>
+              <li>
+                <strong>Não identificada</strong> — nenhum material conhecido no nome (rocha, padrão, branco…). Para usar aqui,
+                clique em <em>composição?</em> e informe.
+              </li>
+            </ul>
+            <p>
+              Para informar ou corrigir: clique na composição da corrida (aqui na lista ou na aba Análises) e escreva{' '}
+              <code>PS</code> (puro), <code>PP 50, PS 50</code> (com a proporção) ou <code>PP, PS</code> (sem a proporção).
+              Um material novo informado uma vez passa a ser reconhecido no nome das próximas corridas.
+            </p>
+          </div>
+        </details>
         {showRuns && (
           <div className="mt-2 max-h-72 overflow-auto text-xs">
             <table className="w-full text-left">
@@ -308,7 +359,14 @@ export function PostRunDeconvTab({
                       {r.error ? (
                         <span className="text-[var(--color-danger)]">{r.error}</span>
                       ) : (
-                        r.composition_text || <span className="text-[var(--color-danger)]">desconhecida</span>
+                        <PostRunCompositionEdit
+                          token={r.token}
+                          summary={analysesByToken[r.token] ?? { ...r, composition_source: '' }}
+                          onSaved={(items) => {
+                            onAnalysesUpdated(items)
+                            load()
+                          }}
+                        />
                       )}
                     </td>
                     <td className="py-1 pr-3 tabular-nums">{r.mass_mg ? `${r.mass_mg.toFixed(3)} mg` : '—'}</td>
@@ -325,12 +383,22 @@ export function PostRunDeconvTab({
       </section>
 
       {/* passo 1 */}
-      <Step n={1} title="Referências e moldes dos materiais puros" done={refsDone}>
+      <Step n={1} title="Referências dos materiais puros (gaussiana e molde)" done={refsDone}>
         <p className="mb-2 text-xs text-[var(--color-text-muted)]">
-          Cada corrida pura é ajustada com 1 pico (gaussiana assimétrica) com o nome do material, e a referência do material
-          é criada — ou refeita, se já existir — com o centro, as larguras e o <strong>molde</strong> (a forma média do sinal
-          dos puros, área 1). Misturas não entram aqui.
+          A referência de cada material é criada — ou refeita, se já existir — com as corridas puras dele. Ela guarda{' '}
+          <strong>duas descrições do mesmo pico</strong>, feitas juntas e das mesmas corridas; misturas não entram aqui.
         </p>
+        <div className="mb-2 grid grid-cols-1 gap-2 text-xs md:grid-cols-2">
+          <div className="rounded-lg border p-2 border-[var(--color-border)]">
+            <strong>Gaussiana de referência</strong> — cada corrida pura é ajustada com 1 gaussiana assimétrica; a referência
+            guarda o centro (°C) e as larguras (esquerda e direita) médios. É o que o método{' '}
+            <strong>Gaussiana guiada</strong> usa.
+          </div>
+          <div className="rounded-lg border p-2 border-[var(--color-border)]">
+            <strong>Molde</strong> — o sinal real de cada corrida pura, dividido pela própria área e alinhado pelo máximo; o
+            molde é a média. Tem a forma verdadeira do pico (caudas incluídas). É o que o método <strong>Molde</strong> usa.
+          </div>
+        </div>
         <button type="button" className={btnPrimaryClass} onClick={() => void stepRefs()} disabled={!!busy || pure.length === 0}>
           {busy === 'referências' ? 'criando…' : `Criar / refazer referências (${pure.length} corrida(s) pura(s))`}
         </button>
@@ -363,7 +431,7 @@ export function PostRunDeconvTab({
         )}
         <details className="mt-3" open={refsDone}>
           <summary className="cursor-pointer text-sm text-[var(--color-text-muted)]">
-            Ver os moldes, a dilatação natural e tirar corridas de uma referência
+            Ver a gaussiana e o molde de cada referência, a dilatação natural, as curvas de calibração e tirar corridas
           </summary>
           <div className="mt-3">
             <PostRunReferencesTab
@@ -421,9 +489,10 @@ export function PostRunDeconvTab({
           </label>
         </div>
         <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+          <strong>Usa da referência: {method === 'molde' ? 'o molde' : 'a gaussiana de referência'}.</strong>{' '}
           {method === 'molde'
             ? 'Cada material entra com o seu molde (a forma real do puro); o ajuste acha a área e, dentro dos limites, um pequeno deslocamento e a dilatação. A "dilatação natural" dos moldes (passo 1) mostra quanto os puros variam entre si; numa mistura o pico pode alargar mais (interação) — se aparecer "no limite da tolerância", aumente o limite e ajuste de novo.'
-            : 'Cada material entra como uma gaussiana assimétrica com centro e larguras presos perto dos da referência (dentro dos limites).'}{' '}
+            : 'Cada material entra como uma gaussiana assimétrica com centro e larguras presos perto dos da gaussiana de referência (dentro dos limites); os puros, com 1 gaussiana livre.'}{' '}
           Os passos 2 a 4 usam este método; o outro continua salvo — dá para comparar trocando aqui.
         </p>
       </section>

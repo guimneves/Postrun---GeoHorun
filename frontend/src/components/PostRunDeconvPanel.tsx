@@ -116,7 +116,7 @@ export function PostRunDeconvPanel({
   function refsFor(t: string): number[] {
     const a = analysesByToken[t]
     if (!s.byComposition) return s.refIds
-    const comp = Object.keys(a?.composition ?? {})
+    const comp = a?.components ?? Object.keys(a?.composition ?? {})
     return references
       .filter((r) => r.channel === channel && (!a || r.cycle_key === a.cycle_key) && comp.includes(r.name))
       .map((r) => r.id)
@@ -125,7 +125,7 @@ export function PostRunDeconvPanel({
   /** componentes da composição sem referência (deste ciclo, com molde no modo Molde) */
   function missingFor(t: string): string[] {
     const a = analysesByToken[t]
-    const comp = Object.keys(a?.composition ?? {})
+    const comp = a?.components ?? Object.keys(a?.composition ?? {})
     return comp.filter(
       (name) =>
         !references.some(
@@ -141,7 +141,7 @@ export function PostRunDeconvPanel({
       // todos os componentes precisam de referência — senão o sinal de quem
       // falta iria inteiro para os outros
       const a = analysesByToken[t]
-      if (!a?.composition) return { missing: [], unknown: true }
+      if (!a?.components?.length && !a?.composition) return { missing: [], unknown: true }
       const missing = missingFor(t)
       if (missing.length) return { missing }
     }
@@ -178,7 +178,7 @@ export function PostRunDeconvPanel({
             `Crie primeiro: abra as corridas do puro, modo Livre, 1 pico, nome ${mats[0]}, Ajustar todas, Salvar, e Criar referência ` +
             `em "Referências dos materiais puros".`
           : `${skipped} análise(s) sem referência marcada.`) +
-          (unknown ? ` ${unknown} sem composição conhecida — informe na aba Curvas.` : ''),
+          (unknown ? ` ${unknown} com a composição não identificada — clique em "composição?" na lista de análises e informe.` : ''),
       )
     }
     if (specs.length === 0) {
@@ -246,8 +246,8 @@ export function PostRunDeconvPanel({
             }}
           >
             <option value="free">Livre</option>
-            <option value="guided">Guiada por referências (picos)</option>
-            <option value="template">Molde do material puro</option>
+            <option value="guided">Gaussiana guiada (usa a gaussiana de referência)</option>
+            <option value="template">Molde (usa o molde do material puro)</option>
           </select>
         </label>
         {s.mode !== 'template' && (
@@ -324,7 +324,7 @@ export function PostRunDeconvPanel({
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-[var(--color-text-muted)]">Referências:</span>
               {cycleRefs.map((r) => {
-                const auto = s.byComposition && Object.keys(analysis?.composition ?? {}).includes(r.name)
+                const auto = s.byComposition && (analysis?.components ?? Object.keys(analysis?.composition ?? {})).includes(r.name)
                 return (
                   <label key={r.id} className="flex items-center gap-1" title={`${r.n_runs} corrida(s) · ${r.cycle_label}`}>
                     <input
@@ -335,7 +335,7 @@ export function PostRunDeconvPanel({
                         setS({ ...s, refIds: e.target.checked ? [...s.refIds, r.id] : s.refIds.filter((id) => id !== r.id) })
                       }
                     />
-                    {r.name} ({r.peaks.map((p) => `${p.mu_c?.toFixed(0)} °C`).join(', ')})
+                    {r.name} ({s.mode === 'template' ? 'molde' : 'gaussiana'} · {r.peaks.map((p) => `${p.mu_c?.toFixed(0)} °C`).join(', ')})
                     {s.mode === 'template' && !r.has_template && (
                       <span className="text-[var(--color-danger)]" title="criada antes do molde — apague e crie de novo"> sem molde</span>
                     )}
@@ -382,7 +382,7 @@ export function PostRunDeconvPanel({
               {result.spec.mode === 'template'
                 ? `molde do puro (± ${result.spec.tol_c} °C, dilatação ± ${result.spec.tol_width_pct} %)`
                 : result.spec.mode === 'guided'
-                  ? `guiada (± ${result.spec.tol_c} °C, ± ${result.spec.tol_width_pct} %)`
+                  ? `guiada pela gaussiana de referência (± ${result.spec.tol_c} °C, ± ${result.spec.tol_width_pct} %)`
                   : 'livre'}
             </span>
           </div>

@@ -40,17 +40,29 @@ function headlineGroups(h: StudyHeadlineGroup[] | undefined): RecoveryGroup[] {
   }))
 }
 
-function StatusBadge({ status }: { status: Study['status'] }) {
+/** Situação do estudo (pedido do usuário, 16/11/2026: "os estudos sempre
+ * aparecem como abertos"): só o estudo ATIVO — o que a pessoa ativou no
+ * workspace — tem destaque; os outros ficam discretos, "em andamento" ou
+ * "finalizado". Nenhum é ativado sozinho. */
+function StatusBadge({ status, active = false }: { status: Study['status']; active?: boolean }) {
   const done = status === 'finalizado'
   return (
-    <span
-      className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-      style={{
-        background: done ? 'var(--color-surface)' : 'var(--color-primary)',
-        color: done ? 'var(--color-text-muted)' : 'var(--color-primary-contrast)',
-      }}
-    >
-      {done ? 'finalizado' : 'aberto'}
+    <span className="flex shrink-0 items-center gap-1">
+      {active && (
+        <span
+          className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+          style={{ background: 'var(--color-primary)', color: 'var(--color-primary-contrast)' }}
+          title="estudo ativo: o workspace (abas Deconvolução, Curvas e Relatório) está com as análises dele"
+        >
+          ativo
+        </span>
+      )}
+      <span
+        className="rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide border-[var(--color-border)] text-[var(--color-text-muted)]"
+        title={done ? 'relatório congelado' : 'ainda dá para guardar análises e mudar o estudo'}
+      >
+        {done ? 'finalizado' : 'em andamento'}
+      </span>
     </span>
   )
 }
@@ -76,7 +88,8 @@ export function PostRunStudiesTab({
   onOpenStudy: (id: number, goTo?: 'deconv' | 'curvas' | 'relatorio') => void
   onCloseStudy: () => void
 }) {
-  const [selected, setSelected] = useState<number | null>(activeStudyId ?? studies[0]?.id ?? null)
+  // nenhum estudo aberto por padrão: mostra o ativo, se houver; os outros só ao clicar
+  const [selected, setSelected] = useState<number | null>(activeStudyId)
   const [detail, setDetail] = useState<StudyDetail | null>(null)
   const [report, setReport] = useState<{ report: RecoveryReport; frozen: boolean } | null>(null)
   const [viewMethod, setViewMethod] = useState<DeconvMethod | null>(null)
@@ -91,9 +104,6 @@ export function PostRunStudiesTab({
   const [section, setSection] = useState<'analises' | 'referencias' | 'curvas' | 'calibracoes'>('analises')
   const [exporting, setExporting] = useState(false)
 
-  useEffect(() => {
-    if (selected === null && studies.length) setSelected(studies[0].id)
-  }, [studies, selected])
 
   function loadDetail(id: number) {
     setDetail(null)
@@ -220,11 +230,10 @@ export function PostRunStudiesTab({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium">{s.name}</span>
-                    <StatusBadge status={s.status} />
+                    <StatusBadge status={s.status} active={activeStudyId === s.id} />
                   </div>
                   <div className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
                     {s.tokens.length} análises · {s.reference_ids.length} ref. · {s.curve_ids.length} curvas · {METHOD_LABEL[s.method]}
-                    {activeStudyId === s.id && <strong className="ml-1 text-[var(--color-primary)]">· aberto no workspace</strong>}
                   </div>
                   {head.length > 0 && (
                     // F1: cada componente, as poliolefinas somadas e o total (Σ encontrada ÷ pesada)
@@ -269,6 +278,13 @@ export function PostRunStudiesTab({
       <div className="flex min-w-0 flex-col gap-4">
         {message && <p className="text-sm text-[var(--color-text-muted)]">{message}</p>}
         {!detail && selected !== null && <p className="text-sm text-[var(--color-text-muted)]">Carregando o estudo…</p>}
+        {selected === null && studies.length > 0 && (
+          <div className={`${cardClass} text-sm text-[var(--color-text-muted)]`}>
+            {activeStudyId === null ? 'Nenhum estudo ativo — o workspace está solto. ' : ''}
+            Clique num estudo à esquerda para ver o que ele guarda. Para trabalhar dentro de um (abrir as análises dele nas abas
+            Deconvolução, Curvas e Relatório), use <strong>Ativar estudo</strong>.
+          </div>
+        )}
         {detail && (
           <>
             <div className={cardClass}>
@@ -296,7 +312,7 @@ export function PostRunStudiesTab({
                     <>
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-semibold">{detail.name}</h2>
-                        <StatusBadge status={detail.status} />
+                        <StatusBadge status={detail.status} active={activeStudyId === detail.id} />
                         <button type="button" className={xBtn} onClick={() => setEditing({ name: detail.name, description: detail.description })} title="editar nome e descrição">
                           ✎
                         </button>
@@ -321,12 +337,18 @@ export function PostRunStudiesTab({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {activeStudyId === detail.id ? (
-                    <button type="button" className={btnClass} onClick={onCloseStudy}>
-                      Fechar do workspace
+                    <button type="button" className={btnClass} onClick={onCloseStudy} title="fecha as análises do estudo no workspace; o estudo continua salvo">
+                      Desativar estudo
                     </button>
                   ) : (
-                    <button type="button" className={btnPrimaryClass} onClick={() => onOpenStudy(detail.id, 'deconv')} disabled={detail.tokens.length === 0}>
-                      Abrir no workspace
+                    <button
+                      type="button"
+                      className={btnPrimaryClass}
+                      onClick={() => onOpenStudy(detail.id, 'deconv')}
+                      disabled={detail.tokens.length === 0}
+                      title="abre as análises, referências e curvas do estudo no workspace (aba Deconvolução)"
+                    >
+                      Ativar estudo
                     </button>
                   )}
                   <button type="button" className={btnClass} onClick={() => void exportXlsx()} disabled={busy || detail.tokens.length === 0}>
@@ -369,15 +391,15 @@ export function PostRunStudiesTab({
                     className={btnClass}
                     disabled={busy || detail.tokens.length === 0}
                     onClick={() => {
-                      if (window.confirm('Finalizar o estudo? O relatório dos dois métodos fica congelado e as referências e curvas dele saem das listas gerais (continuam aqui). Dá para reabrir depois.'))
+                      if (window.confirm('Finalizar o estudo? O relatório dos dois métodos fica congelado e as referências e curvas dele saem das listas gerais (continuam aqui). Dá para desfazer depois.'))
                         void refreshAfter(run(() => studyApi.update(detail.id, { status: 'finalizado' }), 'Estudo finalizado.'))
                     }}
                   >
                     Finalizar estudo
                   </button>
                 ) : (
-                  <button type="button" className={btnClass} disabled={busy} onClick={() => void refreshAfter(run(() => studyApi.update(detail.id, { status: 'aberto' }), 'Estudo reaberto.'))}>
-                    Reabrir
+                  <button type="button" className={btnClass} disabled={busy} onClick={() => void refreshAfter(run(() => studyApi.update(detail.id, { status: 'aberto' }), 'Finalização desfeita: o estudo voltou a ficar em andamento.'))}>
+                    Desfazer a finalização
                   </button>
                 )}
                 <button

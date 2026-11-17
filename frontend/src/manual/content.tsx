@@ -216,9 +216,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             <strong>Salvar curva</strong>.
           </li>
           <li>
-            Massa zero no arquivo ou mistura sem proporção no nome: corrija na tabela de pontos (massa e composição, ex.:
-            "PP 50, PS 50") e toque em <strong>Salvar correções</strong>. A composição é lida do nome quando ele diz
-            (PEAD_PP_PS_50-25-25, "PE + PS (50-50)", PS_040 = PS puro, 4,0 mg nominais).
+            Massa zero no arquivo: clique na massa da corrida (lista de análises) e corrija. A composição também se corrige
+            clicando nela — veja "Composição das corridas" abaixo.
           </li>
         </ol>
         <p>
@@ -238,13 +237,14 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         <p>
           Abra uma curva salva na aba <strong>Curvas</strong>: embaixo aparece o cartão{' '}
           <strong>Brancos de matriz e limites</strong>. Antes, na aba Análises, abra as corridas de{' '}
-          <strong>branco da matriz</strong> (sílica sem polímero, mesmo ciclo da curva — o recomendado é 10 ou mais) e, se
+          <strong>branco da matriz</strong> (a matriz das amostras sem o analito — areia, sedimento, solo, sílica…; mesmo ciclo
+          da curva — o recomendado é 10 ou mais) e, se
           tiver, as réplicas de uma amostra de <strong>baixa concentração</strong>.
         </p>
         <ol>
           <li>
             No cartão, marque o papel de cada análise aberta: <strong>branco</strong>, <strong>nível baixo</strong> ou{' '}
-            <strong>fora</strong>. Corridas com "branco", "sílica" ou "SiO2" no nome já vêm como branco.
+            <strong>fora</strong>. Só corridas com "branco" ou "blank" no nome já vêm como branco; as outras você marca.
           </li>
           <li>
             Informe a <strong>massa de matriz por cadinho</strong> (mg) — vazio usa a média das massas dos brancos. O
@@ -276,10 +276,64 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: 'composicao',
+    title: 'Composição das corridas',
+    body: (
+      <>
+        <p>
+          A composição diz <strong>quais materiais procurar</strong> numa corrida (que referências entram na deconvolução) e{' '}
+          <strong>quanto se esperava</strong> de cada um (para a recuperação). Aparece como um selo ao lado da massa, na
+          lista de análises e na aba Deconvolução; passe o mouse para ver como foi lida. Ela vem do nome do arquivo — ou do
+          que você informar, que sempre vale mais.
+        </p>
+        <ul>
+          <li>
+            <strong>Com a proporção no nome</strong>: <code>PEAD_PP_PS_50-25-25_1</code> → PEAD 50 %, PP 25 %, PS 25 %; no
+            nome da amostra, <code>PE + PS (50-50)</code>. Os nomes antes dos números são os componentes, quaisquer que
+            sejam.
+          </li>
+          <li>
+            <strong>Sem a proporção</strong>: <code>PP_PS_1</code>, <code>PP+PS_1</code> ou a amostra <code>PP + PS</code> →
+            PP e PS, proporção não informada (selo laranja). Os picos são separados e a massa de cada um sai da curva; a
+            recuperação fica em branco, porque precisa da massa esperada. É o caso de uma amostra real a quantificar.
+          </li>
+          <li>
+            <strong>Puro</strong>: <code>PS_1</code>, <code>PEAD_040_2</code> (040 = 4,0 mg nominais),{' '}
+            <code>PEAD_rep_2</code>. Sem proporção no nome, só contam os pedaços que são um{' '}
+            <strong>material conhecido</strong> — os polímeros comuns (PE, PEAD, PEBD, PELBD, PP, PS, PET, PVC, PA, PC, PMMA,
+            PLA, ABS, PU…) e todo material que o laboratório já usou (informado na tela, numa referência ou numa curva).
+            Pedaços como "rep" e "A" são ignorados.
+          </li>
+          <li>
+            <strong>Não identificada</strong> (selo "composição?"): nenhum material conhecido no nome — rochas, padrões,
+            brancos, "Parafina4"… Não entram em referências nem em curvas por engano.
+          </li>
+        </ul>
+        <p>
+          <strong>Para informar ou corrigir</strong>: clique no selo da composição e escreva <code>PS</code> (puro),{' '}
+          <code>PP 50, PS 50</code> (com a proporção; se as porcentagens não somarem 100, viram proporção e o Horun avisa)
+          ou <code>PP, PS</code> (sem a proporção). Enter salva; <em>voltar ao nome do arquivo</em> apaga o que foi
+          informado. Um material novo (ex.: PBAT) informado uma vez passa a ser reconhecido no nome das próximas corridas. A
+          massa real pesada de cada componente da mistura, quando houver, vai no relatório de recuperação (passo 4 da aba
+          Deconvolução ou aba Relatório).
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'deconvolucao',
     title: 'Deconvolução: referências, moldes e misturas',
     body: (
       <>
+        <p>
+          <strong>Gaussiana ou molde?</strong> A referência de cada material puro guarda as duas, feitas juntas e das mesmas
+          corridas: a <strong>gaussiana de referência</strong> — centro e larguras (esquerda e direita) médios de 1 gaussiana
+          assimétrica ajustada a cada corrida — e o <strong>molde</strong> — o sinal real de cada corrida, com área 1 e
+          alinhado pelo máximo, em média. O método <strong>Gaussiana guiada</strong> usa a gaussiana; o método{' '}
+          <strong>Molde</strong> usa o molde. Ao clicar numa referência (passo 1 da aba Deconvolução) aparecem as duas no
+          mesmo gráfico — o molde em linha cheia e a gaussiana tracejada —, o quanto da forma real a gaussiana não descreve,
+          e as curvas de calibração do material nos dois métodos.
+        </p>
         <p>
           <strong>Aba Deconvolução (o caminho recomendado)</strong>: abra na aba Análises os puros de cada material e as
           misturas, com a região de cada uma salva, e siga os 4 passos — <strong>1</strong> referências e moldes dos puros
@@ -319,7 +373,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             <strong>Área de: Gaussiana</strong>, componente PS, <strong>Usar as gaussianas salvas</strong>, Salvar curva.
           </li>
           <li>
-            <strong>Misturas</strong>: abra as réplicas, modo <strong>Guiada por referências</strong> (as referências saem
+            <strong>Misturas</strong>: abra as réplicas, modo <strong>Gaussiana guiada</strong> (as referências saem
             da composição de cada análise), tolerância do centro (± °C) e da largura (± %), Ajustar todas, Salvar. O pico
             fica livre dentro da tolerância: o deslocamento aparece como <strong>ΔTmax</strong> e{' '}
             <strong>Δlargura</strong>; ⚠ = pico no limite da tolerância (aumente-a) ou picos sobrepostos demais (a divisão
@@ -398,10 +452,13 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         Guardam num lugar só tudo de um estudo — as análises (puros e misturas), as referências e moldes, as curvas de
         calibração e as calibrações STD (as deconvoluções vêm junto com as análises). Na aba <strong>Estudos</strong>,
         crie o estudo, abra as análises na aba Análises e use <strong>Guardar workspace no estudo</strong>: entram as
-        análises abertas e as referências, moldes e curvas que elas usam. Nas abas Deconvolução, Curvas e Relatório, a
-        barra <strong>Estudo</strong> abre tudo o que ele guarda de uma vez, como um job (as análises podem ser de jobs
-        diferentes). Ao terminar, <strong>Finalizar estudo</strong> congela o relatório dos dois métodos e tira as
-        referências e curvas dele das listas gerais — continuam guardadas no estudo, e dá para reabrir. Uma curva ou
+        análises abertas e as referências, moldes e curvas que elas usam. Nenhum estudo vem ativo: clique num estudo para
+        ver o que ele guarda e use <strong>Ativar estudo</strong> (ou a barra <strong>Estudo</strong> das abas
+        Deconvolução, Curvas e Relatório) para abrir tudo o que ele guarda de uma vez, como um job (as análises podem ser
+        de jobs diferentes); <strong>Desativar estudo</strong> fecha. Só o estudo ativo tem o selo ATIVO; os outros
+        aparecem como <em>em andamento</em> ou <em>finalizado</em>. Ao terminar, <strong>Finalizar estudo</strong> congela
+        o relatório dos dois métodos e tira as referências e curvas dele das listas gerais — continuam guardadas no
+        estudo, e dá para desfazer a finalização. Uma curva ou
         referência que está num estudo não pode ser apagada (tire-a do estudo antes). Apagar o estudo apaga só o
         "envelope". O cartão <strong>Tolerância ótima de dilatação</strong> reajusta só as misturas (molde) em várias
         tolerâncias de largura, sem gravar nada, e traça o RMSE da recuperação × a tolerância: a ótima é a menor tolerância

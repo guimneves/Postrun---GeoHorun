@@ -159,8 +159,11 @@ def _stat(values: list[float | None]) -> Stat:
     return Stat(mean=mean(xs), sd=stdev(xs) if len(xs) > 1 else None, n=len(xs))
 
 
-def _group_key(composition: dict[str, float] | None, cycle_key: str) -> str:
+def _group_key(composition: dict[str, float] | None, cycle_key: str, components: list[str] | None = None) -> str:
     if not composition:
+        if components:
+            # mistura sem proporção (16/11/2026): massa encontrada, sem recuperação
+            return " + ".join(components) + " (sem proporção)"
         return "composição desconhecida"
     parts = sorted(composition.items(), key=lambda kv: (-kv[1], kv[0]))
     return " · ".join(f"{name} {100 * frac:.4g} %" for name, frac in parts)
@@ -272,6 +275,8 @@ def build_report(session: SessionDep, payload: ReportIn,
                 m.fraction = s.composition.get(mat)
                 if m.fraction is None:
                     m.flags.append("material fora da composição")
+            elif s.components and mat not in s.components:
+                m.flags.append("material fora da composição")
             real = s.component_masses or None
             if real:
                 total_real = sum(real.values())
@@ -306,7 +311,7 @@ def build_report(session: SessionDep, payload: ReportIn,
                 m.recovery_pct = 100.0 * m.found_mg / m.expected_mg
             materials.append(m)
         materials.sort(key=lambda m: -(m.fraction or 0))
-        group = _group_key(s.composition, s.cycle_key)
+        group = _group_key(s.composition, s.cycle_key, s.components)
         group_cycle.setdefault(group, s.cycle_label)
         total_found = sum(m.found_mg for m in materials if m.found_mg is not None)
         all_quant = all(m.found_mg is not None for m in materials)

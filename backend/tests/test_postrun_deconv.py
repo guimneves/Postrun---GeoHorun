@@ -293,6 +293,13 @@ def test_reference_detail_shows_mold_and_runs(user_client, jobs):
         assert run["ok"] and len(run["density"]) == len(d_["tau"])
         assert run["filename"].upper().endswith(".B00") and run["mass_mg"] is not None
         assert 0.8 < run["stretch"] < 1.25 and run["rms_pct"] < 20
+        assert run["gauss_r2"] is not None and run["gauss_r2"] > 0.9
+    # a gaussiana de referência, na mesma grade do molde e com área 1 — ao lado do molde
+    import numpy as np
+
+    assert len(d_["gauss"]) == len(d_["tau"])
+    assert np.trapezoid(d_["gauss"], d_["tau"]) == pytest.approx(1.0, abs=0.03)
+    assert d_["gauss_fwhm_s"] > 0 and 0 <= d_["gauss_misfit_pct"] < 50
     assert user_client.get("/api/postrun/deconvolution/references/99999/detail").status_code == 404
 
 

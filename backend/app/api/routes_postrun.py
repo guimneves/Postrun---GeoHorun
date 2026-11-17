@@ -30,6 +30,8 @@ from app.db.models import (
     PostrunAnalysisMeta,
     PostrunB00Cache,
     PostrunCalibration,
+    PostrunCurve,
+    PostrunDeconvReference,
     PostrunRegion,
 )
 from app.modules import (
@@ -102,10 +104,17 @@ class AnalysisSummaryOut(BaseModel):
     # massa usada nos cálculos: a corrigida na tela, senão a do .B00
     mass_mg: float = 0.0
     mass_source: str = "arquivo"  # "arquivo" | "manual"
-    # composição (fração por componente, soma 1), do nome ou corrigida na tela
+    # composição (fração por componente, soma 1), do nome ou corrigida na
+    # tela — None quando não identificada OU sem a proporção (ver `components`)
     composition: dict[str, float] | None = None
     composition_text: str = ""
     composition_source: str = ""
+    # os componentes, também sem a proporção ("PP + PS"): quais picos procurar
+    components: list[str] = []
+    # "completa" | "sem_proporcao" | "desconhecida" (16/11/2026)
+    composition_status: str = "desconhecida"
+    # como a composição foi lida, ou por que não deu — aparece na tela
+    composition_note: str = ""
     nominal_mass_mg: float | None = None
     # massa que estava no .B00 antes de ser corrigida pela tela (None = nunca mudou)
     file_mass_before_mg: float | None = None
@@ -534,6 +543,37 @@ def _effective_mass(session: SessionDep, token: str, file_mass: float) -> float:
     return meta.mass_mg if meta is not None and meta.mass_mg is not None else file_mass
 
 
+_known_cache: tuple[float, frozenset[str]] | None = None
+_KNOWN_TTL_S = 30.0
+
+
+def known_materials(session: Session) -> frozenset[str]:
+    """Materiais que o PostRun reconhece no nome de um arquivo (16/11/2026):
+    os polímeros comuns (`BUILTIN_MATERIALS`) + os que o laboratório já usou
+    — nome de referência, componente de curva ou composição informada na
+    tela. Informar "PBAT" uma vez faz as corridas "PBAT_1", "PBAT_2"… serem
+    lidas sozinhas. Guardado por 30 s; `forget_known_materials` limpa."""
+    global _known_cache
+    now = time.monotonic()
+    if _known_cache is not None and now - _known_cache[0] < _KNOWN_TTL_S:
+        return _known_cache[1]
+    names: set[str] = set(postrun_composition.BUILTIN_MATERIALS)
+    names.update(n.upper() for n in session.exec(select(PostrunDeconvReference.name)).all() if n)
+    names.update(n.upper() for n in session.exec(select(PostrunCurve.component)).all() if n)
+    for raw in session.exec(select(PostrunAnalysisMeta.composition).where(PostrunAnalysisMeta.composition.is_not(None))).all():
+        try:
+            names.update(str(k).upper() for k in json.loads(raw or "{}"))
+        except (ValueError, TypeError):
+            continue
+    _known_cache = (now, frozenset(names))
+    return _known_cache[1]
+
+
+def forget_known_materials() -> None:
+    global _known_cache
+    _known_cache = None
+
+
 def _apply_meta(session: SessionDep, out: AnalysisSummaryOut, meta: PostrunAnalysisMeta | None) -> AnalysisSummaryOut:
     """Massa e composição efetivas: a correção da tela, senão o arquivo/nome."""
     out.mass_mg = out.quantity_mg
@@ -544,23 +584,26 @@ def _apply_meta(session: SessionDep, out: AnalysisSummaryOut, meta: PostrunAnaly
     if meta is not None and meta.mass_mg is not None:
         out.mass_mg = meta.mass_mg
         out.mass_source = "manual"
-    comp = None
-    try:
-        comp = postrun_composition.from_names(out.filename, out.sample)
-    except postrun_composition.CompositionError:
-        comp = None
+    reading = postrun_composition.read_names(out.filename, out.sample, known_materials(session))
+    comp = reading.composition
+    note = reading.note
     if meta is not None and meta.composition:
-        manual = postrun_composition.Composition(json.loads(meta.composition), None, "manual")
-        comp = postrun_composition.Composition(
-            manual.components, comp.nominal_mass_mg if comp else None, "manual"
-        )
+        manual = postrun_composition.Composition.from_json_dict(json.loads(meta.composition), "manual")
+        manual.nominal_mass_mg = comp.nominal_mass_mg if comp else None
+        manual.note = "informada na tela" + ("" if manual.complete else " — sem a proporção")
+        comp, note = manual, manual.note
+    out.composition_note = note
     if comp is not None:
-        out.composition = comp.components
+        out.composition = comp.components if comp.complete else None
+        out.components = list(comp.names)
+        out.composition_status = "completa" if comp.complete else "sem_proporcao"
         out.composition_text = comp.text
         out.composition_source = comp.source
         out.nominal_mass_mg = comp.nominal_mass_mg
     else:
         out.composition = None
+        out.components = []
+        out.composition_status = "desconhecida"
         out.composition_text = ""
         out.composition_source = ""
         out.nominal_mass_mg = None
@@ -971,7 +1014,7 @@ def update_analysis_meta(payload: list[AnalysisMetaIn], session: SessionDep, use
                 comp = postrun_composition.parse_text(item.composition_text)
             except postrun_composition.CompositionError as exc:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{item.token}: {exc}") from exc
-            composition_json = json.dumps(comp.components)
+            composition_json = json.dumps(comp.to_json_dict())
         masses_json: str | None = None
         if "component_masses_text" in sent and item.component_masses_text:
             try:
@@ -998,6 +1041,7 @@ def update_analysis_meta(payload: list[AnalysisMetaIn], session: SessionDep, use
         else:
             session.add(meta)
     session.commit()
+    forget_known_materials()  # um material novo informado vale já para as outras corridas
     for item in payload:
         try:
             header = _read_analysis_header(session, item.token)

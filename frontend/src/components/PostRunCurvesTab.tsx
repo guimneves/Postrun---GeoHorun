@@ -116,9 +116,13 @@ export function PostRunCurvesTab({
 
   const components = useMemo(() => {
     const set = new Set<string>()
-    for (const p of points) for (const c of Object.keys(analysesByToken[p.region.token]?.composition ?? {})) set.add(c)
+    for (const p of points) {
+      const a = analysesByToken[p.region.token]
+      for (const c of a?.components ?? Object.keys(a?.composition ?? {})) set.add(c)
+    }
     for (const g of workspaceGaussians) set.add(g.material)
-    for (const p of preview?.points ?? []) for (const part of p.composition_text.split(' · ')) if (part) set.add(part.split(' ')[0])
+    for (const p of preview?.points ?? [])
+      for (const part of p.composition_text.replace(' (sem proporção)', '').split(/ · | \+ /)) if (part) set.add(part.split(' ')[0])
     return Array.from(set).sort()
   }, [points, analysesByToken, preview, workspaceGaussians])
 
@@ -187,7 +191,15 @@ export function PostRunCurvesTab({
     const a = analysesByToken[token]
     return edits[token] ?? {
       mass: a?.mass_source === 'manual' ? String(a.mass_mg) : '',
-      comp: a?.composition_source === 'manual' ? a.composition_text.replace(/ %/g, '').replace(/ · /g, ', ') : '',
+      // no formato que se digita: "PP 50, PS 50", "PS" ou "PP, PS" (sem proporção)
+      comp:
+        a?.composition_source === 'manual'
+          ? a.composition && Object.keys(a.composition).length > 1
+            ? Object.entries(a.composition)
+                .map(([k, v]) => `${k} ${+(100 * v).toFixed(2)}`)
+                .join(', ')
+            : (a.components ?? []).join(', ')
+          : '',
     }
   }
 
@@ -479,7 +491,7 @@ export function PostRunCurvesTab({
                         <input
                           className={`${inputClass} min-w-[160px] text-xs`}
                           value={e.comp}
-                          placeholder={out?.composition_text || a?.composition_text || 'ex.: PP 50, PS 50'}
+                          placeholder={out?.composition_text || a?.composition_text || 'ex.: PS · PP 50, PS 50 · PP, PS'}
                           title="vazio = composição lida do nome"
                           onChange={(ev) => setEdits((prev) => ({ ...prev, [token]: { ...e, comp: ev.target.value } }))}
                         />

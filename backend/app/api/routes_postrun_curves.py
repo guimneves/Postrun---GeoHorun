@@ -418,7 +418,7 @@ class LimitsIn(BaseModel):
     blank_tokens: list[str]
     # réplicas de uma amostra de baixa concentração (LoD de Armbruster & Pry)
     low_tokens: list[str] = []
-    # massa de matriz (sílica) por cadinho, mg; vazio = média das massas dos brancos
+    # massa de matriz (qualquer uma: areia, sedimento, sílica…) por cadinho, mg; vazio = média das massas dos brancos
     matrix_mass_mg: float | None = None
     # intervalo de integração dos brancos; vazio = a mediana do da curva
     start_idx: int | None = None

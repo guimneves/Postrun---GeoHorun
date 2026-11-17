@@ -7,11 +7,13 @@ import { Segmented } from '../ui/Segmented'
 
 type Role = 'fora' | 'branco' | 'baixo'
 
-/** Nome/composição com cara de branco de matriz (sílica). */
+/** Nome com "branco" ou "blank": já vem marcado como branco. A matriz pode
+ * ser qualquer uma (areia, sedimento, solo, sílica…) — não se supõe nenhuma
+ * pelo nome (16/11/2026); o resto a pessoa marca. */
 function looksLikeBlank(a: AnalysisSummary | undefined): boolean {
   if (!a) return false
-  const text = `${a.sample} ${a.filename} ${a.composition_text}`.toUpperCase()
-  return /BRANCO|BLANK|SILICA|SÍLICA|SIO2/.test(text)
+  const text = `${a.sample} ${a.filename}`.toUpperCase()
+  return /BRANCO|BLANK/.test(text)
 }
 
 function fmtPpm(v: number | null): string {
@@ -105,10 +107,11 @@ export function PostRunCurveLimits({
         )}
       </div>
       <p className="mb-3 mt-1 text-xs text-[var(--color-text-muted)]">
-        Abra na aba Análises as corridas de <strong>branco da matriz</strong> (sílica sem polímero) — e, se tiver, as réplicas
-        de uma amostra de <strong>baixa concentração</strong> — e marque o papel de cada uma. Cada corrida é integrada no
-        intervalo da curva e convertida em massa aparente pela própria curva. Corridas com "branco", "sílica" ou "SiO2" no
-        nome já vêm marcadas como branco.
+        Abra na aba Análises as corridas de <strong>branco da matriz</strong> — a matriz das suas amostras sem o analito
+        (areia, sedimento, solo, sílica… o que for o caso) — e, se tiver, as réplicas de uma amostra de{' '}
+        <strong>baixa concentração</strong>; depois marque o papel de cada uma. Cada corrida é integrada no intervalo da curva e
+        convertida em massa aparente pela própria curva. Só corridas com "branco" ou "blank" no nome já vêm marcadas; as
+        outras você marca.
       </p>
 
       {rows.length === 0 ? (

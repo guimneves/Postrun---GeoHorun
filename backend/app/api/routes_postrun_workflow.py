@@ -72,10 +72,16 @@ class RunStatusOut(BaseModel):
     sample: str
     composition: dict[str, float] | None
     composition_text: str
+    # componentes também sem a proporção, estado e explicação (16/11/2026)
+    components: list[str] = []
+    composition_status: str = "desconhecida"
+    composition_note: str = ""
     mass_mg: float
     cycle_key: str
     cycle_label: str
-    kind: str  # "pure" | "mixture" | "unknown"
+    # "pure" | "mixture" | "no_ratio" (mistura sem proporção: ajusta e dá a
+    # massa encontrada, sem recuperação) | "unknown"
+    kind: str
     material: str | None = None  # quando puro
     has_region: bool
     error: str | None = None
@@ -159,12 +165,15 @@ def _region(session: SessionDep, token: str, channel: str) -> PostrunRegion | No
     ).first()
 
 
-def _kind(comp: dict[str, float] | None) -> tuple[str, str | None]:
-    if not comp:
-        return "unknown", None
-    if len(comp) == 1:
-        return "pure", next(iter(comp))
-    return "mixture", None
+def _kind(summary) -> tuple[str, str | None]:
+    comp = summary.composition
+    if comp:
+        if len(comp) == 1:
+            return "pure", next(iter(comp))
+        return "mixture", None
+    if len(summary.components) > 1:
+        return "no_ratio", None
+    return "unknown", None
 
 
 def _spec(region: PostrunRegion, **extra) -> DeconvSpecIn:
@@ -207,7 +216,7 @@ def _gather(session: SessionDep, tokens: list[str], channel: str):
         except HTTPException as exc:
             out.append((token, None, None, "unknown", None, str(exc.detail)))
             continue
-        kind, material = _kind(info.summary.composition)
+        kind, material = _kind(info.summary)
         out.append((token, info, _region(session, token, channel), kind, material, None))
     return out
 
@@ -232,6 +241,7 @@ _log = logging.getLogger(__name__)
 
 def _unknown(token: str, error: str) -> RunStatusOut:
     return RunStatusOut(token=token, filename=token.rsplit("/", 1)[-1], sample="", composition=None, composition_text="",
+                        composition_note=error,
                         mass_mg=0, cycle_key="", cycle_label="", kind="unknown", has_region=False, error=error)
 
 
@@ -260,7 +270,8 @@ def _status(session: SessionDep, tokens: list[str], channel: str) -> StatusOut:
                                             warnings=data.get("warnings", []), materials=mats)
             runs.append(RunStatusOut(
                 token=token, filename=s.filename, sample=s.sample, composition=s.composition,
-                composition_text=s.composition_text, mass_mg=s.mass_mg, cycle_key=s.cycle_key, cycle_label=s.cycle_label,
+                composition_text=s.composition_text, components=s.components,
+                composition_status=s.composition_status, composition_note=s.composition_note, mass_mg=s.mass_mg, cycle_key=s.cycle_key, cycle_label=s.cycle_label,
                 kind=kind, material=material, has_region=region is not None, saved=saved,
             ))
         except Exception as exc:  # noqa: BLE001 — registra e segue com as outras
@@ -349,9 +360,10 @@ def fit_all(payload: FitIn, session: SessionDep, user: CurrentUser):
             item.error = "sem região salva — defina a janela na aba Análises"
             continue
         if kind == "unknown":
-            item.error = "composição desconhecida — informe na aba Curvas (ou no nome da análise)"
+            item.error = ("composição não identificada — clique na composição da corrida e informe "
+                          "(ex.: PS · PP 50, PS 50 · PP, PS)")
             continue
-        comp = info.summary.composition or {}
+        comp = info.summary.components
         cycle = info.summary.cycle_key
         refs = {m: _ref_for(session, m, payload.channel, cycle) for m in comp}
         if kind == "pure" and method == "gauss":

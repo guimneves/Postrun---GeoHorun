@@ -11,7 +11,7 @@ lacuna do "Plano do artigo — JAAP".
 - **Saída:** média ± DP por composição, com o n de réplicas válidas.
 
 ### F2. Brancos de matriz e limites em ppm
-- **Entrada:** corridas de branco da matriz (sílica) e a massa de matriz por cadinho.
+- **Entrada:** corridas de branco da matriz (a matriz das amostras sem o analito — qualquer uma) e a massa de matriz por cadinho.
 - **Cálculos:** LOB, LOD e LOQ (Armbruster & Pry, como no PMP-009); 3,3σ₀/b e 10σ₀/b (a partir da curva).
 - **Saída:** limites em mg e em ppm (µg/g), com o critério usado indicado.
 - **Lembrete:** alertar quando houver menos de 10 brancos.

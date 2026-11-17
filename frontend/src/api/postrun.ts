@@ -30,10 +30,16 @@ export interface AnalysisSummary {
   /** massa usada nos cálculos: a corrigida na tela, senão a do .B00 */
   mass_mg: number
   mass_source: 'arquivo' | 'manual'
-  /** fração por componente (soma 1), do nome ou corrigida na tela */
+  /** fração por componente (soma 1), do nome ou corrigida na tela — null
+   * quando não identificada OU sem a proporção (ver `components`) */
   composition: Record<string, number> | null
   composition_text: string
   composition_source: string
+  /** componentes, também sem a proporção ("PP + PS"): quais picos procurar */
+  components: string[]
+  composition_status: CompositionStatus
+  /** como a composição foi lida, ou por que não deu */
+  composition_note: string
   nominal_mass_mg: number | null
   /** massa que estava no .B00 antes de ser corrigida (a tela grava Quant= no arquivo) */
   file_mass_before_mg?: number | null
@@ -42,6 +48,9 @@ export interface AnalysisSummary {
   /** massa real de cada polímero pesada na mistura (mg) — a esperada no relatório */
   component_masses?: Record<string, number> | null
 }
+
+/** completa = dá recuperação; sem_proporcao = só a massa encontrada; desconhecida = informar */
+export type CompositionStatus = 'completa' | 'sem_proporcao' | 'desconhecida'
 
 /** Correção da tela: mass_mg null = volta ao arquivo; composition_text '' = volta ao nome. */
 export interface AnalysisMetaIn {
@@ -535,6 +544,8 @@ export interface ReferenceRun {
   /** quanto a forma foge do molde (% da altura do molde) */
   rms_pct: number | null
   density: number[]
+  /** R² do ajuste de 1 gaussiana desta corrida */
+  gauss_r2?: number | null
 }
 
 export interface ReferenceDetail {
@@ -546,6 +557,11 @@ export interface ReferenceDetail {
   max_c: number | null
   mold_fwhm_s: number | null
   runs: ReferenceRun[]
+  /** gaussiana de referência (centro e larguras médios, área 1) na grade do molde — vazio com 2+ picos */
+  gauss: number[]
+  gauss_fwhm_s: number | null
+  /** parte da forma real que a gaussiana não descreve (%) */
+  gauss_misfit_pct: number | null
 }
 
 // ---------------------------------------------------------- relatório de recuperação
@@ -647,10 +663,14 @@ export interface WorkflowRun {
   sample: string
   composition: Record<string, number> | null
   composition_text: string
+  components: string[]
+  composition_status: CompositionStatus
+  composition_note: string
   mass_mg: number
   cycle_key: string
   cycle_label: string
-  kind: 'pure' | 'mixture' | 'unknown'
+  /** no_ratio = mistura sem proporção: ajusta e dá a massa encontrada, sem recuperação */
+  kind: 'pure' | 'mixture' | 'no_ratio' | 'unknown'
   material: string | null
   has_region: boolean
   error: string | null

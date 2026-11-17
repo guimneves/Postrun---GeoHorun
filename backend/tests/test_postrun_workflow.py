@@ -89,6 +89,31 @@ def test_whole_flow_keeps_gauss_and_mold_side_by_side(user_client, jobs):
         assert all(r_["materials"][0]["recovery_pct"] for r_ in body["runs"])
 
 
+def test_mixture_without_ratio_is_fitted_and_quantified_without_recovery(user_client, jobs):
+    """Composição sem proporção ("STD, PS" — 16/11/2026): o ajuste usa as
+    referências dos componentes e o relatório dá a massa encontrada, sem
+    recuperação (não há massa esperada)."""
+    for t, m, comp in ((T1, 60.0, "STD"), (T2, 30.0, "PS"), (T3, 20.0, "STD, PS")):
+        assert user_client.put("/api/postrun/analyses/meta", json=[{"token": t, "mass_mg": m, "composition_text": comp}]).status_code == 200
+    tokens = [T1, T2, T3]
+    user_client.put("/api/postrun/regions/save", json={"upserts": [_region(t) for t in tokens]})
+    st = user_client.post("/api/postrun/workflow/status", json={"tokens": tokens}).json()
+    run3 = next(x for x in st["runs"] if x["token"] == T3)
+    assert run3["kind"] == "no_ratio" and run3["components"] == ["STD", "PS"]
+    assert run3["composition_status"] == "sem_proporcao" and run3["composition"] is None
+
+    assert user_client.post("/api/postrun/workflow/references", json={"tokens": tokens}).status_code == 200
+    res = {i["token"]: i for i in user_client.post("/api/postrun/workflow/fit", json={"tokens": tokens, "method": "molde"}).json()}
+    assert res[T3]["ok"], res[T3]
+    user_client.post("/api/postrun/workflow/curves", json={"tokens": tokens, "method": "molde", "model": "origin"})
+    body = user_client.post("/api/postrun/report/recovery", json={"tokens": [T3], "method": "molde"}).json()
+    (run,) = body["runs"]
+    assert run["group"] == "STD + PS (sem proporção)"
+    assert {m["material"] for m in run["materials"]} <= {"STD", "PS"}
+    assert all(m["recovery_pct"] is None and m["expected_mg"] is None for m in run["materials"])
+    assert all("material fora da composição" not in m["flags"] for m in run["materials"])
+
+
 def test_status_by_post_lists_every_open_analysis_even_with_a_broken_one(user_client, jobs, monkeypatch):
     """Com 44 análises abertas a aba mostrava só 1 (a lista ia na URL); agora
     vai no corpo, e uma análise com problema vira uma linha com o erro."""

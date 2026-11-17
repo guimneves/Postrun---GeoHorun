@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../api/client'
-import { postrunApi, type AnalysisSummary, type DeconvReference, type ReferenceDetail } from '../api/postrun'
+import { METHOD_LABEL, postrunApi, type AnalysisSummary, type DeconvReference, type ReferenceDetail, type SavedCurve } from '../api/postrun'
 import { PostRunMassEdit } from './PostRunMassEdit'
 import { fmtNum } from '../lib/postrunFormat'
 import { PEAK_COLORS } from '../lib/postrunColors'
@@ -10,7 +10,9 @@ import { inputInlineClass as inputClass, btnClass, cardClass } from '../ui/class
 // Aba Referências do PostRun (pedido do usuário, 16/10/2026): ver o molde
 // de cada material puro junto com as corridas que o formaram, a "dilatação
 // natural" entre elas e comparar os moldes dos materiais — fora da aba
-// Análises, que estava poluída.
+// Análises, que estava poluída. Desde 16/11/2026 mostra as DUAS partes da
+// referência — a gaussiana de referência (método Gaussiana guiada) e o molde
+// (método Molde) — e as curvas de calibração do material nos dois métodos.
 
 /** nome da análise sem a extensão (ex.: PP_60mg_001) */
 function runName(r: { filename: string; token: string }): string {
@@ -68,6 +70,9 @@ export function PostRunReferencesTab({
   const [errors, setErrors] = useState<Record<number, string>>({})
   const [hoverRun, setHoverRun] = useState<string | null>(null)
   const [showRuns, setShowRuns] = useState(true)
+  const [showMold, setShowMold] = useState(true)
+  const [showGauss, setShowGauss] = useState(true)
+  const [curves, setCurves] = useState<SavedCurve[] | null>(null)
   const [refName, setRefName] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -84,6 +89,17 @@ export function PostRunReferencesTab({
     setDetails({})
     setErrors({})
   }, [refreshKey])
+  // curvas de calibração (para mostrar as do material selecionado, nos dois métodos)
+  useEffect(() => {
+    let alive = true
+    postrunApi
+      .listCurves(channel)
+      .then((c) => alive && setCurves(c))
+      .catch(() => alive && setCurves([]))
+    return () => {
+      alive = false
+    }
+  }, [channel, refreshKey])
   useEffect(() => {
     if (selected === null && refs.length) setSelected(refs[0].id)
     if (selected !== null && !refs.some((r) => r.id === selected)) setSelected(refs[0]?.id ?? null)
@@ -156,10 +172,25 @@ export function PostRunReferencesTab({
           width: hoverRun === r.token ? 2 : 0.8,
           opacity: hoverRun && hoverRun !== r.token ? 0.25 : 0.6,
         })
-    out.push({ key: '__mold', x: tau, y: det.mold.slice(a, b), color: PEAK_COLORS[0], width: 2.4 })
+    if (showMold) out.push({ key: '__mold', x: tau, y: det.mold.slice(a, b), color: PEAK_COLORS[0], width: 2.4 })
+    if (showGauss && det.gauss?.length)
+      out.push({ key: '__gauss', x: tau, y: det.gauss.slice(a, b), color: PEAK_COLORS[1], width: 2.2, dash: '6 4' })
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [det, showRuns, hoverRun])
+  }, [det, showRuns, showMold, showGauss, hoverRun])
+
+  // curvas de calibração do material selecionado, no ciclo da referência, por método
+  const refCurves = useMemo(() => {
+    if (!det || !curves) return null
+    const mine = curves.filter(
+      (c) => c.component.toUpperCase() === det.reference.name.toUpperCase() && c.cycle_key === det.reference.cycle_key,
+    )
+    return {
+      molde: mine.filter((c) => c.area_source === 'gaussian' && c.deconv_method === 'molde'),
+      gauss: mine.filter((c) => c.area_source === 'gaussian' && (c.deconv_method ?? 'gauss') === 'gauss'),
+      region: mine.filter((c) => c.area_source === 'region'),
+    }
+  }, [det, curves])
 
   // molde fora do zero: referência criada quando o alinhamento era pelo
   // centro da gaussiana (antes de 16/10/2026) — recriar resolve
@@ -284,7 +315,9 @@ export function PostRunReferencesTab({
           <div className={cardClass}>
             <h2 className="mb-1 font-semibold">Referências ({refs.length})</h2>
             <p className="mb-2 text-xs text-[var(--color-text-muted)]">
-              Clique para ver o molde. Marque "comparar" para sobrepor os moldes de vários materiais.
+              Cada referência guarda a <strong>gaussiana de referência</strong> (usada pela Gaussiana guiada) e o{' '}
+              <strong>molde</strong> (usado pelo Molde). Clique para ver as duas; marque "comparar" para sobrepor os moldes de
+              vários materiais.
             </p>
             {refs.length === 0 ? (
               <p className="text-sm text-[var(--color-text-muted)]">Nenhuma referência neste canal ainda.</p>
@@ -303,7 +336,18 @@ export function PostRunReferencesTab({
                       <span className="font-semibold">{r.name}</span>{' '}
                       <span className="text-xs text-[var(--color-text-muted)]">
                         · {r.n_runs} corrida(s) · {r.peaks.map((p) => `${p.mu_c?.toFixed(0)} °C`).join(', ')}
-                        {!r.has_template && ' · sem molde'}
+                      </span>
+                      <span className="mt-0.5 flex gap-1 text-[10px]">
+                        <span className="rounded-full border px-1.5 border-[var(--color-border)]" title="centro e larguras médios — método Gaussiana guiada">
+                          gaussiana ✓
+                        </span>
+                        <span
+                          className="rounded-full border px-1.5"
+                          style={{ borderColor: r.has_template ? 'var(--color-border)' : 'var(--color-danger)', color: r.has_template ? undefined : 'var(--color-danger)' }}
+                          title={r.has_template ? 'forma média dos puros — método Molde' : 'criada antes do molde — apague e crie de novo'}
+                        >
+                          molde {r.has_template ? '✓' : '✗'}
+                        </span>
                       </span>
                       <span className="block truncate text-[10px] text-[var(--color-text-dim)]">{r.cycle_label}</span>
                     </button>
@@ -394,13 +438,26 @@ export function PostRunReferencesTab({
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-semibold">
-                  Molde de {det.reference.name}{' '}
+                  Referência de {det.reference.name}{' '}
                   <span className="text-xs font-normal text-[var(--color-text-muted)]">{det.reference.cycle_label}</span>
                 </h2>
-                <label className="flex items-center gap-1 text-xs">
-                  <input type="checkbox" checked={showRuns} onChange={(e) => setShowRuns(e.target.checked)} />
-                  mostrar as corridas
-                </label>
+                <span className="flex flex-wrap items-center gap-3 text-xs">
+                  <label className="flex items-center gap-1" title="a forma média real dos puros — método Molde">
+                    <input type="checkbox" checked={showMold} onChange={(e) => setShowMold(e.target.checked)} />
+                    <span style={{ color: PEAK_COLORS[0] }}>━</span> molde
+                  </label>
+                  <label
+                    className="flex items-center gap-1"
+                    title={det.gauss?.length ? 'centro e larguras médios — método Gaussiana guiada' : 'referência com mais de um pico: veja os centros na lista'}
+                  >
+                    <input type="checkbox" checked={showGauss} disabled={!det.gauss?.length} onChange={(e) => setShowGauss(e.target.checked)} />
+                    <span style={{ color: PEAK_COLORS[1] }}>╍</span> gaussiana de referência
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input type="checkbox" checked={showRuns} onChange={(e) => setShowRuns(e.target.checked)} />
+                    as corridas
+                  </label>
+                </span>
               </div>
               <PostRunLinesPlot
                 series={detailSeries}
@@ -410,10 +467,13 @@ export function PostRunReferencesTab({
                 height={320}
                 vLines={[{ x: 0, label: `máximo · ${det.max_c?.toFixed(1) ?? '—'} °C` }]}
                 legend={[
-                  { label: 'molde (média)', color: PEAK_COLORS[0] },
+                  ...(showMold ? [{ label: 'molde', color: PEAK_COLORS[0] }] : []),
+                  ...(showGauss && det.gauss?.length
+                    ? [{ label: 'gaussiana', color: PEAK_COLORS[1], dash: '6 4' }]
+                    : []),
                   ...(showRuns ? [{ label: 'cada corrida', color: 'var(--color-text-muted)' }] : []),
                 ]}
-                onHover={(k) => setHoverRun(k && k !== '__mold' ? k : null)}
+                onHover={(k) => setHoverRun(k && !k.startsWith('__') ? k : null)}
               />
               <p className="min-h-4 text-xs font-medium" style={{ color: '#e34948' }}>
                 {(() => {
@@ -429,8 +489,11 @@ export function PostRunReferencesTab({
                 </p>
               )}
               <p className="text-xs text-[var(--color-text-muted)]">
-                Cada corrida foi dividida pela própria área (área 1) e alinhada pelo próprio máximo; o molde é a média. A faixa
-                clara é ± 1 desvio-padrão entre as corridas: estreita = as corridas têm a mesma forma.
+                Cada corrida foi dividida pela própria área (área 1) e alinhada pelo próprio máximo; o <strong>molde</strong> é a
+                média (a faixa clara é ± 1 desvio-padrão entre as corridas: estreita = as corridas têm a mesma forma). A{' '}
+                <strong>gaussiana de referência</strong> (tracejada) é o pico com o centro e as larguras médios dos ajustes de 1
+                gaussiana de cada corrida, também com área 1 — onde ela se afasta do molde (caudas, topo) é a parte da forma real
+                que o método Gaussiana guiada não descreve.
               </p>
 
               {stats && (
@@ -447,6 +510,63 @@ export function PostRunReferencesTab({
                     value={stats.suggest != null ? `± ${stats.suggest} %` : '—'}
                     sub="o mínimo para os puros; misturas podem pedir mais"
                   />
+                  {det.reference.peaks.length === 1 && (
+                    <Stat
+                      label="Gaussiana de referência"
+                      value={`${det.reference.peaks[0].mu_c?.toFixed(1) ?? '—'} °C`}
+                      sub={`largura (meia altura) ${det.gauss_fwhm_s != null ? det.gauss_fwhm_s.toFixed(0) : '—'} s · esq. ${det.reference.peaks[0].sigma_l_s.toFixed(0)} s / dir. ${det.reference.peaks[0].sigma_r_s.toFixed(0)} s`}
+                    />
+                  )}
+                  {det.gauss_misfit_pct != null && (
+                    <Stat
+                      label="Forma que a gaussiana não descreve"
+                      value={`${det.gauss_misfit_pct.toFixed(1)} %`}
+                      sub="½ ∫ |molde − gaussiana| — perto de 0 = a gaussiana basta"
+                    />
+                  )}
+                </div>
+              )}
+
+              {refCurves && (
+                <div className="rounded-xl border p-2 text-xs border-[var(--color-border)]">
+                  <div className="mb-1 font-semibold">Curvas de calibração de {det.reference.name} (neste ciclo)</div>
+                  <table className="w-full text-left">
+                    <tbody>
+                      {(
+                        [
+                          ['molde', `Pelo molde — área do pico ajustado com o molde (${METHOD_LABEL.molde})`],
+                          ['gauss', `Pela gaussiana — área do pico gaussiano (${METHOD_LABEL.gauss})`],
+                          ['region', 'Pela área da janela inteira (sem deconvolução)'],
+                        ] as const
+                      ).map(([k, label]) => {
+                        const list = refCurves[k]
+                        if (k === 'region' && list.length === 0) return null
+                        return (
+                          <tr key={k} className="border-t border-[var(--color-border)] align-top">
+                            <td className="py-1 pr-3 text-[var(--color-text-muted)]">{label}</td>
+                            <td className="py-1">
+                              {list.length === 0 ? (
+                                <span className="text-[var(--color-text-dim)]">
+                                  nenhuma — passo 3 da aba Deconvolução com o método {k === 'molde' ? 'Molde' : 'Gaussiana guiada'}
+                                </span>
+                              ) : (
+                                list.map((c) => (
+                                  <span key={c.id} className="block">
+                                    <strong>{c.name}</strong> · {c.fit?.equation ?? '—'} · R² {c.fit?.r2?.toFixed(4) ?? '—'} ·{' '}
+                                    {c.points.filter((p) => !p.excluded).length} ponto(s)
+                                  </span>
+                                ))
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  <p className="mt-1 text-[var(--color-text-dim)]">
+                    As duas curvas usam as mesmas corridas puras; mudam só as áreas (molde × gaussiana). Para ver o gráfico ou tirar
+                    pontos: aba Curvas.
+                  </p>
                 </div>
               )}
 
@@ -460,6 +580,7 @@ export function PostRunReferencesTab({
                     <th className="py-1 pr-3">Largura (s)</th>
                     <th className="py-1 pr-3" title="largura desta corrida ÷ largura do molde">Dilatação</th>
                     <th className="py-1 pr-3" title="RMS da diferença para o molde ÷ altura do molde">Foge do molde</th>
+                    <th className="py-1 pr-3" title="R² do ajuste de 1 gaussiana desta corrida (a base da gaussiana de referência)">R² gaussiana</th>
                     <th className="py-1" />
                   </tr>
                 </thead>
@@ -527,6 +648,7 @@ export function PostRunReferencesTab({
                         <td className="py-1 pr-3 tabular-nums">{r.fwhm_s?.toFixed(0) ?? '—'}</td>
                         <td className="py-1 pr-3 tabular-nums">{r.stretch != null ? `× ${r.stretch.toFixed(3)}` : '—'}</td>
                         <td className="py-1 pr-3 tabular-nums">{r.rms_pct != null ? `${r.rms_pct.toFixed(1)} %` : '—'}</td>
+                        <td className="py-1 pr-3 tabular-nums">{r.gauss_r2 != null ? r.gauss_r2.toFixed(4) : '—'}</td>
                         <td className="py-1 text-xs" style={{ color: r.ok ? '#b26a00' : 'var(--color-danger)' }}>
                           {flag ? `⚠ ${flag}` : ''}
                         </td>

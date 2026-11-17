@@ -205,6 +205,8 @@ class RefRunOut(BaseModel):
     # quanto a forma difere do molde: RMS da diferença ÷ altura do molde (%)
     rms_pct: float | None = None
     density: list[float] = []  # forma normalizada (área 1) na grade do molde
+    # R² do ajuste de 1 gaussiana desta corrida (a base da gaussiana de referência)
+    gauss_r2: float | None = None
 
 
 class ReferenceDetailOut(BaseModel):
@@ -216,6 +218,13 @@ class ReferenceDetailOut(BaseModel):
     max_c: float | None = None
     mold_fwhm_s: float | None = None
     runs: list[RefRunOut] = []
+    # gaussiana de referência (16/11/2026 — "só aparece o molde"): o pico com o
+    # centro e as larguras médios da referência, área 1, na mesma grade do
+    # molde — o que o método Gaussiana guiada usa. Vazio com 2+ picos.
+    gauss: list[float] = []
+    gauss_fwhm_s: float | None = None
+    # parte da forma real que a gaussiana não descreve: ½·∫|molde − gaussiana| (%)
+    gauss_misfit_pct: float | None = None
 
 
 # ------------------------------------------------------------------ cálculo
@@ -816,6 +825,18 @@ def reference_detail(ref_id: int, session: SessionDep, _user: CurrentUser):
         out.mold_fwhm_s = _fwhm(tau, mold)
     else:
         tau = mold = None
+    peaks = json.loads(ref.peaks or "[]")
+    if tau is not None and len(peaks) == 1 and out.center_s is not None:
+        pk = peaks[0]
+        sl, sr = float(pk.get("sigma_l_s") or 0), float(pk.get("sigma_r_s") or 0)
+        if sl > 0 and sr > 0:
+            x = tau - (float(pk["mu_s"]) - out.center_s)
+            g = np.where(x < 0, np.exp(-0.5 * (x / sl) ** 2), np.exp(-0.5 * (x / sr) ** 2))
+            g = g / (np.sqrt(np.pi / 2) * (sl + sr))
+            out.gauss = g.tolist()
+            out.gauss_fwhm_s = float(np.sqrt(2 * np.log(2)) * (sl + sr))
+            out.gauss_misfit_pct = float(50 * np.trapezoid(np.abs(mold - g), tau))
+    r2_of = {row.token: json.loads(row.result or "{}").get("r2") for row in rows}
     stack = []
     for r in runs:
         if not r["ok"]:
@@ -823,7 +844,8 @@ def reference_detail(ref_id: int, session: SessionDep, _user: CurrentUser):
             continue
         t, y, c = r["t"], r["y"], r["c"]
         area = float(np.trapezoid(y, t))
-        run = RefRunOut(**{k: r[k] for k in _RUN_ID_KEYS}, max_c=r["max_c"], area_s=area, fwhm_s=_fwhm(t, y))
+        run = RefRunOut(**{k: r[k] for k in _RUN_ID_KEYS}, max_c=r["max_c"], area_s=area, fwhm_s=_fwhm(t, y),
+                        gauss_r2=r2_of.get(r["token"]))
         if tau is not None and area > 0:
             dens = np.interp(tau, t - c, y / area, left=0.0, right=0.0)
             stack.append(dens)

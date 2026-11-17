@@ -539,6 +539,11 @@ export function PostRunReportTab({
                           <>
                             <td className="py-1 pr-3 align-top font-medium" rowSpan={g.materials.length}>
                               {g.key}
+                              {g.key.endsWith('(sem proporção)') && (
+                                <span className="block text-[10px] font-normal text-[#b26a00]">
+                                  só a massa encontrada — a recuperação precisa da proporção (clique na composição da corrida)
+                                </span>
+                              )}
                             </td>
                             <td className="py-1 pr-3 align-top" rowSpan={g.materials.length}>
                               {g.n_runs}
