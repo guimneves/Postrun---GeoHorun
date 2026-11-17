@@ -370,7 +370,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           </li>
           <li>
             <strong>Curva da gaussiana</strong>: com as mesmas corridas abertas, aba Curvas,{' '}
-            <strong>Área de: Gaussiana</strong>, componente PS, <strong>Usar as gaussianas salvas</strong>, Salvar curva.
+            <strong>Área de: Pico gaussiano</strong> (ou <strong>Pico ajustado pelo molde</strong>), componente PS, <strong>Usar os picos salvos</strong>, Salvar curva. O passo 3 da aba Deconvolução faz isso sozinho (as curvas "automáticas").
           </li>
           <li>
             <strong>Misturas</strong>: abra as réplicas, modo <strong>Gaussiana guiada</strong> (as referências saem
@@ -460,7 +460,10 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         o relatório dos dois métodos e tira as referências e curvas dele das listas gerais — continuam guardadas no
         estudo, e dá para desfazer a finalização. Uma curva ou
         referência que está num estudo não pode ser apagada (tire-a do estudo antes). Apagar o estudo apaga só o
-        "envelope". O cartão <strong>Tolerância ótima de dilatação</strong> reajusta só as misturas (molde) em várias
+        "envelope". No detalhe do estudo, as <strong>Ferramentas do estudo</strong> aparecem como cartões com ícone, a
+        pergunta que cada uma responde e uma frase do que faz: Validação, Réplicas, Tolerância ótima, Comparar modelos,
+        Interação, Robustez e Picos sobrepostos. Clique num cartão para abrir só aquela ferramenta embaixo (clique de novo,
+        ou em "fechar", para recolher). A <strong>Tolerância ótima</strong> reajusta só as misturas (molde) em várias
         tolerâncias de largura, sem gravar nada, e traça o RMSE da recuperação × a tolerância: a ótima é a menor tolerância
         no mínimo da curva. <strong>Exportar Excel completo</strong> leva tudo; a aba <em>Horun_Resultados</em> é a que o
         módulo Resultados importa.
@@ -473,7 +476,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     body: (
       <>
         <p>
-          No detalhe de um estudo (aba <strong>Estudos</strong>), o cartão <strong>Validação independente</strong>:
+          No detalhe de um estudo (aba <strong>Estudos</strong>), a ferramenta <strong>Validação</strong>:
         </p>
         <ol>
           <li>
@@ -521,7 +524,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     body: (
       <>
         <p>
-          No detalhe de um estudo, o cartão <strong>Comparador de modelos</strong> reajusta os puros e as misturas do estudo
+          No detalhe de um estudo, a ferramenta <strong>Comparar modelos</strong> reajusta os puros e as misturas do estudo
           — mesma janela, mesmas referências — em cada modelo escolhido, <strong>sem gravar nada</strong>. Cada modelo ganha
           as próprias curvas, refeitas com os puros no mesmo modelo, e as misturas são quantificadas por elas:
         </p>
@@ -534,8 +537,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           <li><strong>Molde rígido (CLS)</strong>: centro e dilatação fixos (mínimos quadrados clássicos);</li>
           <li><strong>Gaussiana guiada</strong> e <strong>Bigaussiana guiada</strong>;</li>
           <li>
-            <strong>Soma ponderada (PMP-008)</strong>: moldes rígidos quantificados pelo fator de resposta médio dos puros
-            (área/mg) — a leitura do GeoHorun para o método do PMP-008.
+            <strong>Soma ponderada (Pawar e Kim, 2025)</strong>: moldes rígidos quantificados pelo fator de resposta médio dos puros
+            (área/mg) — a leitura do GeoHorun para o método de Pawar e Kim (2025).
           </li>
         </ul>
         <p>
@@ -556,7 +559,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     body: (
       <>
         <p>
-          No detalhe de um estudo, <strong>Interação na co-pirólise</strong> → <strong>Calcular a interação</strong>. Para cada
+          No detalhe de um estudo, a ferramenta <strong>Interação</strong> → <strong>Calcular a interação</strong>. Para cada
           mistura com deconvolução salva (no método escolhido no alto do cartão de recuperação):
         </p>
         <ul>
@@ -565,7 +568,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             cada um com a área que a curva do material dá para a massa esperada (pesada, ou fração × massa);
           </li>
           <li>
-            <strong>Curva de diferença</strong> = medido − previsto (análoga ao ΔM do PMP-008) e, na tabela, o{' '}
+            <strong>Curva de diferença</strong> = medido − previsto (análoga ao ΔM de Pawar e Kim, 2025) e, na tabela, o{' '}
             <strong>ΔM</strong> = (área medida − prevista) ÷ prevista e o maior desvio local — clique numa mistura para ver
             as curvas;
           </li>
@@ -587,7 +590,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     body: (
       <>
         <p>
-          No detalhe de um estudo, <strong>Robustez dos moldes</strong>: escolha o material e toque em{' '}
+          No detalhe de um estudo, a ferramenta <strong>Robustez</strong>: escolha o material e toque em{' '}
           <strong>Calcular a robustez</strong>. Precisa de misturas com o material ajustadas por <strong>molde</strong> e
           de pelo menos 3 corridas no molde dele. Nada é gravado.
         </p>
@@ -619,7 +622,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         <p>
           Quando dois materiais têm picos muito sobrepostos (PEAD e PP, por exemplo), o ajuste acerta o total mas não sabe
           dividir a área entre eles: uma recuperação sai alta e a outra baixa, e a soma continua boa. No detalhe de um
-          estudo, <strong>Identificabilidade</strong> → <strong>Diagnosticar</strong>:
+          estudo, a ferramenta <strong>Picos sobrepostos</strong> → <strong>Diagnosticar</strong>:
         </p>
         <ul>
           <li>

@@ -4,7 +4,7 @@ Para cada mistura do estudo:
 - **previsão sem interação**: a soma dos moldes RÍGIDOS dos puros (centro da
   referência, sem dilatação), cada um com a área que a curva do material dá
   para a massa esperada dele na mistura;
-- **curva de diferença** = medido − previsão — análoga ao ΔM do PMP-008: o que
+- **curva de diferença** = medido − previsão — análoga ao ΔM de Pawar e Kim (2025): o que
   a co-pirólise mudou (deslocamento, alargamento, sinal a mais ou a menos);
 - ΔM (%) = (∫medido − ∫previsto) ÷ ∫previsto e o maior desvio local.
 

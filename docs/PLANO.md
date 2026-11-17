@@ -117,7 +117,7 @@ Andamento da Fase 2 (14/11/2026):
   curva, mg e ppm, aviso com < 10 brancos), `POST /api/postrun/curves/{id}/limits`
   (resultado guardado em `PostrunCurve.limits`) e o cartão "Brancos e limites" na
   aba Curvas (papel de cada análise aberta: branco / nível baixo / fora; massa de
-  matriz; intervalo). Manual atualizado. **Aberto:** conferir o LoQ com o PMP-009
+  matriz; intervalo). Manual atualizado. **Aberto:** conferir o LoQ com Romero-Sarmiento et al. (2025)
   (hoje μ_branco + 10σ_branco — perguntado ao usuário).
 - ✅ F3: `app/modules/postrun_validation.py` (viés, RMSEP, recuperação, regressão,
   ANOVA de um fator com o dia como fator → s_r, s_entre, s_PI) e
@@ -148,8 +148,8 @@ do livro do Rock-Eval) ou P2 do artigo (F6–F9).
 Andamento da Fase 4 (P2 do artigo, 14/11/2026):
 - ✅ F6: `routes_postrun_compare.py` — `POST /api/postrun/studies/{id}/compare-models`:
   molde, molde centro fixo, molde sem dilatação, CLS, gaussiana e bigaussiana
-  guiadas e "soma ponderada (PMP-008)" (= moldes rígidos + fator de resposta médio,
-  reta pela origem com peso 1/m² — leitura nossa, a conferir com o PMP-008);
+  guiadas e "soma ponderada (Pawar e Kim, 2025)" (= moldes rígidos + fator de resposta médio,
+  reta pela origem com peso 1/m² — leitura nossa, a conferir com Pawar e Kim (2025));
   reajusta puros e misturas sem gravar, curvas por modelo em memória
   (`build_report(curve_cache=…)`); recuperação, RMSE, RMSEP, BIC, R², picos no
   limite. Cartão "Comparador de modelos" no estudo, barras exportáveis.

@@ -27,7 +27,20 @@ export interface RecoveryGroup {
   materials: ({ material: string; fraction: number | null } & RecoveryStat)[]
 }
 
-export const TOTAL_HELP = 'total = soma das massas encontradas ÷ massa pesada da corrida'
+export const TOTAL_HELP =
+  'total = soma das massas encontradas ÷ massa pesada da corrida — ou seja, a média das recuperações pesada pela massa de cada material (não a média simples)'
+
+/** "≈ 75 % × 97,1 + 25 % × 119,8" — a conta do total à vista (pedido do usuário,
+ * 16/11/2026: "um dá 97,1, o outro 119,8 e o total 102,9 — como?"). O total de
+ * verdade é calculado réplica a réplica (e com a massa real pesada, se houver),
+ * por isso o "≈". */
+function totalFormula(g: RecoveryGroup): string | null {
+  const ms = g.materials
+  if (ms.length < 2 || ms.some((m) => m.fraction === null || m.mean === null)) return null
+  const f = (v: number, d = 1) => v.toFixed(d).replace('.', ',')
+  const sum = ms.reduce((acc, m) => acc + (m.fraction as number) * (m.mean as number), 0)
+  return `≈ ${ms.map((m) => `${f(100 * (m.fraction as number), 0)} % × ${f(m.mean as number)}`).join(' + ')} = ${f(sum)} %`
+}
 export const POLY_HELP =
   'poliolefinas somadas: os picos de PEAD e PP se sobrepõem na pirólise; a divisão da área entre eles é incerta, a soma não'
 
@@ -88,7 +101,14 @@ export function RecoveryKpis({ groups, compact = false }: { groups: RecoveryGrou
               <Kpi label={g.polyolefins.label} stat={g.polyolefins} nRuns={g.n_runs} title={POLY_HELP} divider />
             )}
             {g.materials.length > 1 && (
-              <Kpi label="total" stat={g.total} nRuns={g.n_runs} title={TOTAL_HELP} divider={!g.polyolefins} />
+              <Kpi
+                label="total"
+                stat={g.total}
+                nRuns={g.n_runs}
+                title={TOTAL_HELP}
+                divider={!g.polyolefins}
+                sub={totalFormula(g) ?? undefined}
+              />
             )}
           </div>
         </div>
@@ -104,6 +124,7 @@ function Kpi({
   title,
   empty = '',
   divider = false,
+  sub,
 }: {
   label: ReactNode
   stat: RecoveryStat
@@ -111,6 +132,8 @@ function Kpi({
   title?: string
   empty?: string
   divider?: boolean
+  /** uma linha de explicação embaixo (a conta do total) */
+  sub?: string
 }) {
   return (
     <div className={`flex flex-col ${divider ? 'border-l border-[var(--color-border)] pl-4' : ''}`} title={title}>
@@ -123,6 +146,12 @@ function Kpi({
           ? empty
           : `${stat.sd !== null ? `± ${stat.sd.toFixed(1)} % · ` : ''}${nValid(stat.n, nRuns)}`}
       </span>
+      {sub && stat.mean !== null && (
+        <span className="mt-0.5 max-w-[16rem] text-[10.5px] leading-snug text-[var(--color-text-dim)]">
+          {sub}
+          <span className="block">média pesada pela massa de cada material</span>
+        </span>
+      )}
     </div>
   )
 }

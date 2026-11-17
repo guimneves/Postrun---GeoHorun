@@ -14,7 +14,7 @@ const MODELS: [CompareModelKey, string, string][] = [
   ['cls', 'Molde rígido (CLS)', 'centro e dilatação fixos'],
   ['gauss', 'Gaussiana guiada', ''],
   ['bigauss', 'Bigaussiana guiada', ''],
-  ['pmp008', 'Soma ponderada (PMP-008)', 'moldes rígidos + fator de resposta médio dos puros'],
+  ['pmp008', 'Soma ponderada (Pawar e Kim, 2025)', 'moldes rígidos + fator de resposta médio dos puros'],
 ]
 
 /** F6 do artigo: o mesmo conjunto (puros e misturas do estudo) ajustado por

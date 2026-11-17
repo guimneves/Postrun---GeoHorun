@@ -11,7 +11,7 @@ Modelos:
 - `gauss`, `bigauss`: gaussiana / bigaussiana guiadas pelas referências;
 - `pmp008`: soma ponderada dos moldes rígidos quantificada pelo FATOR DE
   RESPOSTA MÉDIO dos puros (área/mg, reta pela origem) — leitura nossa do
-  método do PMP-008, a conferir com o procedimento.
+  método de Pawar e Kim (2025), a conferir com o procedimento.
 
 "Fixo" = limites de ±0,001 °C e ±0,0001 % (o otimizador precisa de limites
 distintos), na prática fixo.
@@ -46,7 +46,7 @@ MODELS: dict[str, dict] = {
     "cls": {"label": "Molde rígido (CLS)", "mode": "template", "fix_c": True, "fix_s": True},
     "gauss": {"label": "Gaussiana guiada", "mode": "guided", "shape": "gaussian"},
     "bigauss": {"label": "Bigaussiana guiada", "mode": "guided", "shape": "bigaussian"},
-    "pmp008": {"label": "Soma ponderada (PMP-008)", "mode": "template", "fix_c": True, "fix_s": True, "rf": True},
+    "pmp008": {"label": "Soma ponderada (Pawar e Kim, 2025)", "mode": "template", "fix_c": True, "fix_s": True, "rf": True},
 }
 
 

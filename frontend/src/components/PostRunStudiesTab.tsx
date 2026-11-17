@@ -12,13 +12,7 @@ import {
   type StudyHeadlineGroup,
 } from '../api/postrun'
 import { POLY_HELP, RecoveryBars, RecoveryKpis, TOTAL_HELP, groupsFromReport, nValid, recoveryColor, type RecoveryGroup } from './PostRunRecoveryViz'
-import { PostRunStudyInspect } from './PostRunStudyInspect'
-import { PostRunStudyTolerance } from './PostRunStudyTolerance'
-import { PostRunValidationPanel } from './PostRunValidationPanel'
-import { PostRunModelCompare } from './PostRunModelCompare'
-import { PostRunInteractionPanel } from './PostRunInteractionPanel'
-import { PostRunRobustnessPanel } from './PostRunRobustnessPanel'
-import { PostRunIdentifiabilityPanel } from './PostRunIdentifiabilityPanel'
+import { PostRunStudyTools } from './PostRunStudyTools'
 import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 const xBtn = 'rounded px-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] disabled:opacity-30'
@@ -479,100 +473,8 @@ export function PostRunStudiesTab({
               )}
             </div>
 
-            {/* F3: validação independente (calibração × validação, modo cego, RMSEP, ANOVA) */}
-            {detail.tokens.length > 0 && (
-              <div className={cardClass}>
-                <h3 className="mb-1 font-semibold">Validação independente</h3>
-                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
-                  Marque as corridas de calibração e as de validação (independentes das curvas). As de validação são
-                  quantificadas pelas curvas e comparadas com a massa pesada: recuperação, viés, RMSEP e precisão
-                  intermediária (ANOVA com o dia como fator) — {METHOD_LABEL[viewMethod ?? detail.method]}.
-                </p>
-                <PostRunValidationPanel
-                  key={detail.id}
-                  studyId={detail.id}
-                  analyses={detail.analyses}
-                  method={viewMethod ?? detail.method}
-                  editable={detail.status === 'aberto'}
-                />
-              </div>
-            )}
-
-            {/* F6: comparador de modelos nos mesmos dados */}
-            {detail.tokens.length > 0 && (
-              <div className={cardClass}>
-                <h3 className="mb-1 font-semibold">Comparador de modelos</h3>
-                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
-                  Puros e misturas do estudo ajustados por vários modelos — mesma janela, mesmas referências — cada um com as
-                  próprias curvas (refeitas com os puros no mesmo modelo). Recuperação, RMSE e BIC lado a lado; as ablações do
-                  molde mostram o que a deformação (centro, dilatação) acrescenta.
-                </p>
-                <PostRunModelCompare key={detail.id} studyId={detail.id} />
-              </div>
-            )}
-
-            {/* F7: interação na co-pirólise */}
-            {detail.tokens.length > 0 && (
-              <div className={cardClass}>
-                <h3 className="mb-1 font-semibold">Interação na co-pirólise</h3>
-                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
-                  Cada mistura contra a previsão sem interação (os moldes dos puros com as massas esperadas): a curva de
-                  diferença e o ΔM, como no PMP-008; ΔTmax e Δlargura × fração; e os parâmetros que bateram no limite —{' '}
-                  {METHOD_LABEL[viewMethod ?? detail.method]}.
-                </p>
-                <PostRunInteractionPanel key={`${detail.id}-${viewMethod ?? detail.method}`} studyId={detail.id} method={viewMethod ?? detail.method} />
-              </div>
-            )}
-
-            {/* F8: robustez dos moldes */}
-            {detail.tokens.length > 0 && (
-              <div className={cardClass}>
-                <h3 className="mb-1 font-semibold">Robustez dos moldes</h3>
-                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
-                  Quanto a quantificação depende do molde: refaz o molde do material sem cada corrida pura
-                  (deixa-uma-de-fora), reajusta puros e misturas e requantifica — sem gravar. Daí sai o termo do molde na
-                  incerteza combinada. Opcional: compara com o molde de outro lote, grade ou granulometria.
-                </p>
-                <PostRunRobustnessPanel key={detail.id} studyId={detail.id} analyses={detail.analyses} />
-              </div>
-            )}
-
-            {/* F9: identificabilidade */}
-            {detail.tokens.length > 0 && (
-              <div className={cardClass}>
-                <h3 className="mb-1 font-semibold">Identificabilidade</h3>
-                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
-                  Picos muito sobrepostos (ex.: PEAD e PP): o ajuste acerta o total, mas não sabe dividir a área — as áreas saem
-                  fortemente correlacionadas. Com |ρ| &gt; 0,9, reporte a soma do par. O bootstrap dos resíduos reajusta a mistura
-                  muitas vezes e mostra quanto a massa de cada material (e a da soma) varia —{' '}
-                  {METHOD_LABEL[viewMethod ?? detail.method]}.
-                </p>
-                <PostRunIdentifiabilityPanel key={`${detail.id}-${viewMethod ?? detail.method}`} studyId={detail.id} method={viewMethod ?? detail.method} />
-              </div>
-            )}
-
-            {/* réplica a réplica: a corrida com o molde do puro, a forma e as larguras (22/10/2026) */}
-            {report && viewMethod && report.report.runs.length > 0 && (
-              <div className={cardClass}>
-                <h3 className="mb-1 font-semibold">Réplicas — molde, forma e dilatação</h3>
-                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
-                  Escolha uma réplica para ver a corrida com o molde do puro sobreposto e a forma normalizada ({METHOD_LABEL[viewMethod]}).
-                </p>
-                <PostRunStudyInspect report={report.report} method={viewMethod} />
-              </div>
-            )}
-
-            {/* tolerância ótima de dilatação (23/10/2026) */}
-            {detail.tokens.length > 0 && (
-              <div className={cardClass}>
-                <h3 className="mb-1 font-semibold">Tolerância ótima de dilatação (Molde)</h3>
-                <p className="mb-3 text-xs text-[var(--color-text-muted)]">
-                  Qual tolerância de largura faz a recuperação das misturas chegar mais perto das massas conhecidas — a curva
-                  RMSE × tolerância deste sistema.
-                </p>
-                <PostRunStudyTolerance key={detail.id} studyId={detail.id} />
-              </div>
-            )}
+            {/* ferramentas do estudo: grade de cartões, uma aberta por vez (16/11/2026) */}
+            <PostRunStudyTools detail={detail} report={report} method={viewMethod ?? detail.method} />
 
             {/* o que o estudo guarda */}
             <div className={cardClass}>

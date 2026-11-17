@@ -9,6 +9,7 @@ import {
   type CurvePreview,
   type CurveWeighting,
   type CurveXKind,
+  type DeconvMethod,
   type RegionIn,
   type SavedCurve,
 } from '../api/postrun'
@@ -75,6 +76,9 @@ export function PostRunCurvesTab({
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
   const [areaSource, setAreaSource] = useState<AreaSource>('region')
+  // com área de pico: de qual deconvolução salva (16/11/2026 — antes o editor
+  // não guardava e uma curva "molde" aberta e salva virava gaussiana)
+  const [peakMethod, setPeakMethod] = useState<DeconvMethod>('molde')
   const [xKind, setXKind] = useState<CurveXKind>('sample_mass')
   const [component, setComponent] = useState('')
   const [model, setModel] = useState<CurveModel>('linear')
@@ -104,7 +108,7 @@ export function PostRunCurvesTab({
     let alive = true
     const timer = window.setTimeout(() => {
       postrunApi
-        .previewCurve({ channel: 'pyro:FID', area_source: areaSource, x_kind: xKind, component, model, weighting, points })
+        .previewCurve({ channel: 'pyro:FID', area_source: areaSource, deconv_method: peakMethod, x_kind: xKind, component, model, weighting, points })
         .then((p) => alive && setPreview(p))
         .catch((err) => alive && setMessage(err instanceof ApiError ? err.message : 'Erro ao ajustar a curva'))
     }, 350)
@@ -160,6 +164,7 @@ export function PostRunCurvesTab({
     setName(c.name)
     setNotes(c.notes)
     setAreaSource(c.area_source)
+    setPeakMethod(c.deconv_method ?? 'gauss')
     setXKind(c.x_kind)
     setComponent(c.component)
     setModel(c.model)
@@ -233,7 +238,7 @@ export function PostRunCurvesTab({
     }
     setBusy(true)
     setMessage(null)
-    const spec = { channel: 'pyro:FID', area_source: areaSource, x_kind: xKind, component, model, weighting, points, name, notes }
+    const spec = { channel: 'pyro:FID', area_source: areaSource, deconv_method: peakMethod, x_kind: xKind, component, model, weighting, points, name, notes }
     try {
       const saved = editingId ? await postrunApi.updateCurve(editingId, spec) : await postrunApi.createCurve(spec)
       setEditingId(saved.id)
@@ -309,6 +314,33 @@ export function PostRunCurvesTab({
             Nova curva
           </button>
         </div>
+        <details className="mb-2 text-xs text-[var(--color-text-muted)]">
+          <summary className="cursor-pointer">O que são estas curvas (e as "automáticas")</summary>
+          <div className="mt-1 flex flex-col gap-1 pl-3">
+            <p>
+              Uma curva de calibração liga a <strong>massa de um material</strong> (eixo X) à <strong>área do sinal</strong>{' '}
+              dele (eixo Y), a partir de corridas com massa conhecida. Depois, a área medida numa amostra vira massa pela curva.
+            </p>
+            <p>A área pode vir de três jeitos — a coluna "Área" diz qual:</p>
+            <ul className="list-disc pl-4">
+              <li>
+                <strong>pico pelo molde</strong> — a área do pico do material ajustado com o molde (método Molde);
+              </li>
+              <li>
+                <strong>pico gaussiano</strong> — a área do pico ajustado como gaussiana (método Gaussiana guiada);
+              </li>
+              <li>
+                <strong>janela inteira</strong> — toda a área da região, sem separar picos (só serve para material puro).
+              </li>
+            </ul>
+            <p>
+              <strong>Automática</strong> = criada pelo passo 3 da aba Deconvolução: uma por material e por método, só com
+              as corridas puras daquele material. Refazer o passo 3 <strong>atualiza a mesma curva</strong> (não cria
+              outra). As outras foram feitas à mão aqui. Para quantificar uma mistura, vale a curva do <strong>mesmo método</strong>{' '}
+              da deconvolução dela — o relatório escolhe sozinho.
+            </p>
+          </div>
+        </details>
         {curves.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted)]">Nenhuma curva ainda.</p>
         ) : (
@@ -318,6 +350,8 @@ export function PostRunCurvesTab({
                 <tr>
                   <th className="py-1 pr-3">Nome</th>
                   <th className="py-1 pr-3">Massa (eixo X)</th>
+                  <th className="py-1 pr-3">Área (eixo Y)</th>
+                  <th className="py-1 pr-3">Feita</th>
                   <th className="py-1 pr-3">Ciclo</th>
                   <th className="py-1 pr-3">Modelo</th>
                   <th className="py-1 pr-3">n</th>
@@ -334,9 +368,16 @@ export function PostRunCurvesTab({
                     style={editingId === c.id ? { background: 'var(--color-surface)' } : undefined}
                   >
                     <td className="py-1 pr-3 font-medium">{c.name}</td>
-                    <td className="py-1 pr-3">
-                      {c.x_kind === 'component_mass' ? `de ${c.component}` : 'da amostra'}
-                      {c.area_source === 'gaussian' && <span className="block text-[10px] text-[var(--color-text-dim)]">área da gaussiana</span>}
+                    <td className="py-1 pr-3">{c.x_kind === 'component_mass' ? `de ${c.component}` : 'da amostra'}</td>
+                    <td className="py-1 pr-3 text-xs">
+                      {c.area_source === 'region'
+                        ? 'janela inteira'
+                        : (c.deconv_method ?? 'gauss') === 'molde'
+                          ? 'pico pelo molde'
+                          : 'pico gaussiano'}
+                    </td>
+                    <td className="py-1 pr-3 text-xs" title={c.name.endsWith('(automática)') ? 'criada pelo passo 3 da aba Deconvolução; refazer o passo 3 atualiza esta mesma curva' : 'feita à mão nesta aba'}>
+                      {c.name.endsWith('(automática)') ? 'automática (passo 3)' : 'à mão'}
                     </td>
                     <td className="py-1 pr-3 text-xs">{c.cycle_label}</td>
                     <td className="py-1 pr-3 text-xs">
@@ -377,16 +418,18 @@ export function PostRunCurvesTab({
             Área de
             <select
               className={inputClass}
-              value={areaSource}
+              value={areaSource === 'region' ? 'region' : peakMethod}
               onChange={(e) => {
-                const v = e.target.value as AreaSource
-                setAreaSource(v)
+                const v = e.target.value as 'region' | DeconvMethod
+                setAreaSource(v === 'region' ? 'region' : 'gaussian')
+                if (v !== 'region') setPeakMethod(v)
                 setPoints([])
-                if (v === 'gaussian') setXKind('component_mass')
+                if (v !== 'region') setXKind('component_mass')
               }}
             >
-              <option value="region">Região integrada</option>
-              <option value="gaussian">Gaussiana (deconvolução salva)</option>
+              <option value="region">Janela inteira (sem separar picos)</option>
+              <option value="molde">Pico ajustado pelo molde</option>
+              <option value="gauss">Pico gaussiano</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs text-[var(--color-text-muted)]">
@@ -437,7 +480,7 @@ export function PostRunCurvesTab({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="button" className={btnClass} onClick={fillFromWorkspace}>
             {areaSource === 'gaussian'
-              ? `Usar as gaussianas salvas das análises abertas (${workspaceGaussians.filter((g) => !component || g.material === component).length})`
+              ? `Usar os picos salvos das análises abertas (${workspaceGaussians.filter((g) => !component || g.material === component).length})`
               : `Usar as regiões das análises abertas (${workspacePoints.length})`}
           </button>
           {pendingEdits.length > 0 && (

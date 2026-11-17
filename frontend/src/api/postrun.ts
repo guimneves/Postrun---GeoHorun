@@ -278,6 +278,8 @@ export type AreaSource = 'region' | 'gaussian'
 export interface CurveSpec {
   channel: string
   area_source: AreaSource
+  /** com área de pico: de qual deconvolução salva (molde ou gaussiana) */
+  deconv_method?: DeconvMethod
   x_kind: CurveXKind
   component: string
   model: CurveModel

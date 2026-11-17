@@ -12,7 +12,7 @@ lacuna do "Plano do artigo — JAAP".
 
 ### F2. Brancos de matriz e limites em ppm
 - **Entrada:** corridas de branco da matriz (a matriz das amostras sem o analito — qualquer uma) e a massa de matriz por cadinho.
-- **Cálculos:** LOB, LOD e LOQ (Armbruster & Pry, como no PMP-009); 3,3σ₀/b e 10σ₀/b (a partir da curva).
+- **Cálculos:** LOB, LOD e LOQ (Armbruster & Pry, como em Romero-Sarmiento et al., 2025); 3,3σ₀/b e 10σ₀/b (a partir da curva).
 - **Saída:** limites em mg e em ppm (µg/g), com o critério usado indicado.
 - **Lembrete:** alertar quando houver menos de 10 brancos.
 
@@ -35,13 +35,13 @@ lacuna do "Plano do artigo — JAAP".
 ## Prioridade 2: fortalecem o artigo
 
 ### F6. Comparador de modelos
-- Roda nos mesmos dados: molde, molde sem deformação do tempo (CLS puro), gaussiana guiada, bigaussiana e soma ponderada no estilo do PMP-008.
+- Roda nos mesmos dados: molde, molde sem deformação do tempo (CLS puro), gaussiana guiada, bigaussiana e soma ponderada no estilo de Pawar e Kim (2025).
 - **Saída:** recuperação, RMSEP e BIC por modelo (Fig. 4).
 - **Ablação:** desligar a deformação por partes (fixar c, fixar s, fixar os dois).
 
 ### F7. Painel de interação na co-pirólise
 - ΔTmax e Δlargura em função da fração de cada componente (Fig. 5).
-- **Curva de diferença:** medido menos a soma ponderada dos moldes sem deformação (análoga ao ΔM do PMP-008).
+- **Curva de diferença:** medido menos a soma ponderada dos moldes sem deformação (análoga ao ΔM de Pawar e Kim, 2025).
 - **Alerta:** parâmetro no limite (ex.: +40 % do PEAD com PS).
 
 ### F8. Robustez dos moldes
@@ -67,7 +67,7 @@ lacuna do "Plano do artigo — JAAP".
 | Pendências de recuperação e exclusões | F1, F4 |
 | Figuras com a resolução da JAAP | F5 |
 | Comparação de modelos | F6 |
-| Co-pirólise × PMP-008 | F7 |
+| Co-pirólise × Pawar e Kim (2025) | F7 |
 | Robustez do molde | F8, F9 |
 | PEAD/PP, PET/PVC, solo real | F10, F11 |
 | Código e dados abertos | F12 |

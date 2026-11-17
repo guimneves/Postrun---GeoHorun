@@ -1,5 +1,5 @@
 """F6 do artigo: comparador de modelos (molde, ablações, CLS, gaussiana e
-bigaussiana guiadas, soma ponderada PMP-008) nos mesmos dados, sem gravar —
+bigaussiana guiadas, soma ponderada de Pawar e Kim, 2025) nos mesmos dados, sem gravar —
 com `.B00` sintéticos de dois materiais (STD a 440 °C e X a 500 °C)."""
 
 from datetime import datetime
