@@ -2,7 +2,15 @@
  * painel da deconvolução (aba Análises) e no inspetor da aba Estudos. */
 import type { DeconvResult } from '../api/postrun'
 import type { LineSeries } from '../components/PostRunLinesPlot'
-import { PEAK_COLORS } from './postrunColors'
+import { materialColor } from './postrunColors'
+
+/** Cor do pico k = a cor FIXA do material dele (a mesma da legenda e da
+ * tabela). Até 17/11/2026 era pela ordem dos picos (azul, verde, …) e a
+ * legenda pelo material: com PS antes do PEAD, as cores saíam trocadas. */
+const colorOf = (r: DeconvResult, k: number) => {
+  const names = r.peaks.map((p) => p.name)
+  return materialColor(r.peaks[k]?.name ?? `pico ${k + 1}`, names)
+}
 
 /** Forma: puro × mistura, cada um ÷ a própria altura e centrado no próprio
  * máximo — sem o deslocamento e sem a área, sobra só a mudança de forma. */
@@ -22,7 +30,7 @@ export function shapeSeriesOf(r: DeconvResult | null | undefined): LineSeries[] 
   c.components.forEach((vals, k) => {
     const pure = c.pure_components?.[k]
     if (!pure?.length) return
-    const color = PEAK_COLORS[k % PEAK_COLORS.length]
+    const color = colorOf(r, k)
     out.push({ key: `pure${k}`, ...norm(pure), color, width: 1.4, dash: '2 3', label: `${r.peaks[k]?.name} · puro` })
     out.push({ key: `mix${k}`, ...norm(vals), color, width: 2, label: `${r.peaks[k]?.name} · mistura` })
   })
@@ -39,7 +47,7 @@ export function overlaySeriesOf(r: DeconvResult | null | undefined, withPure = t
     { key: 'signal', x, y: c.signal, color: 'var(--color-text-muted)', width: 1.2, opacity: 0.8, label: 'sinal' },
   ]
   c.components.forEach((vals, k) => {
-    const color = PEAK_COLORS[k % PEAK_COLORS.length]
+    const color = colorOf(r, k)
     out.push({ key: `comp${k}`, x, y: vals, color, width: 2, label: r.peaks[k]?.name })
     const pure = c.pure_components?.[k]
     if (withPure && pure?.length) out.push({ key: `pure${k}`, x, y: pure, color, width: 1.4, dash: '2 3', label: `${r.peaks[k]?.name} · molde do puro` })
