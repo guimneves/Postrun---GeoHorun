@@ -452,7 +452,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         Guardam num lugar só tudo de um estudo — as análises (puros e misturas), as referências e moldes, as curvas de
         calibração e as calibrações STD (as deconvoluções vêm junto com as análises). Na aba <strong>Estudos</strong>,
         crie o estudo, abra as análises na aba Análises e use <strong>Guardar workspace no estudo</strong>: entram as
-        análises abertas e as referências, moldes e curvas que elas usam. Nenhum estudo vem ativo: clique num estudo para
+        análises abertas e as referências, moldes e curvas que elas usam. O <strong>resultado oficial</strong> do estudo é por um dos métodos (Molde ou Gaussiana, escolhido ao criar e mudável enquanto o estudo está em andamento): é o que aparece no cartão da lista e o que o módulo Resultados importa do Excel; o outro método continua calculado, para comparar — a chave <em>ver por</em> da Recuperação só muda o que se vê. Nenhum estudo vem ativo: clique num estudo para
         ver o que ele guarda e use <strong>Ativar estudo</strong> (ou a barra <strong>Estudo</strong> das abas
         Deconvolução, Curvas e Relatório) para abrir tudo o que ele guarda de uma vez, como um job (as análises podem ser
         de jobs diferentes); <strong>Desativar estudo</strong> fecha. Só o estudo ativo tem o selo ATIVO; os outros

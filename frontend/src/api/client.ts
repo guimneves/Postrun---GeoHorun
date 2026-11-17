@@ -21,6 +21,19 @@ export class ApiError extends Error {
   }
 }
 
+/** Sessão do Horun expirou com a página aberta (16/11/2026 — a tela ficava
+ * em "Não autenticado" sem saída): atrás do Core (/m/...), vai para o login e
+ * volta para esta mesma página depois. Em desenvolvimento, sem Core, não faz
+ * nada. O 401 aqui só vem de sessão ausente/encerrada (o do Agente não passa
+ * pelo navegador). */
+let goingToLogin = false
+function toLoginIfSessionEnded(status: number) {
+  if (status !== 401 || goingToLogin || !window.location.pathname.startsWith('/m/')) return
+  goingToLogin = true
+  const here = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  window.location.assign(`/login?next=${encodeURIComponent(here)}`)
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -48,6 +61,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     } catch {
       // resposta sem corpo JSON
     }
+    toLoginIfSessionEnded(res.status)
     throw new ApiError(res.status, message, duplicateWarning, detailObj)
   }
 
@@ -71,6 +85,7 @@ async function requestBlob(path: string, body?: unknown): Promise<Blob> {
     } catch {
       // sem corpo JSON
     }
+    toLoginIfSessionEnded(res.status)
     throw new ApiError(res.status, message)
   }
   return res.blob()

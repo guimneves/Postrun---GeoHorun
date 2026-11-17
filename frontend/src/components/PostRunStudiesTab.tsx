@@ -195,8 +195,8 @@ export function PostRunStudiesTab({
             <input className={inputClass} placeholder="nome (ex.: PP/PS — série 1)" value={newName} onChange={(e) => setNewName(e.target.value)} />
             <textarea className={`${inputClass} h-16`} placeholder="descrição (opcional)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
             <label className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-              método principal
-              <select className={`${inputClass} w-auto`} value={newMethod} onChange={(e) => setNewMethod(e.target.value as DeconvMethod)}>
+              <span title="o resultado oficial do estudo: é o que aparece no cartão da lista e o que o módulo Resultados importa do Excel. O outro método continua calculado e salvo, para comparar — a chave Molde/Gaussiana em Recuperação só muda o que você está vendo.">resultado oficial pelo</span>
+              <select className={`${inputClass} w-auto`} title="o resultado oficial do estudo: é o que aparece no cartão da lista e o que o módulo Resultados importa do Excel. O outro método continua calculado e salvo, para comparar — a chave Molde/Gaussiana em Recuperação só muda o que você está vendo." value={newMethod} onChange={(e) => setNewMethod(e.target.value as DeconvMethod)}>
                 <option value="molde">Molde</option>
                 <option value="gauss">Gaussiana</option>
               </select>
@@ -315,8 +315,10 @@ export function PostRunStudiesTab({
                       <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                         criado em {new Date(detail.created_at).toLocaleDateString('pt-BR')}
                         {detail.finalized_at && ` · finalizado em ${new Date(detail.finalized_at).toLocaleDateString('pt-BR')}`}
-                        {' · '}método principal{' '}
+                        {' · '}
+                        <span title="o resultado oficial do estudo: é o que aparece no cartão da lista e o que o módulo Resultados importa do Excel. O outro método continua calculado e salvo, para comparar — a chave Molde/Gaussiana em Recuperação só muda o que você está vendo." className="underline decoration-dotted underline-offset-2">resultado oficial pelo</span>{' '}
                         <select
+                          title="o resultado oficial do estudo: é o que aparece no cartão da lista e o que o módulo Resultados importa do Excel. O outro método continua calculado e salvo, para comparar — a chave Molde/Gaussiana em Recuperação só muda o que você está vendo."
                           className="rounded border bg-transparent px-1 text-xs border-[var(--color-border)]"
                           value={detail.method}
                           disabled={!isOpen || busy}
@@ -423,7 +425,9 @@ export function PostRunStudiesTab({
                   Recuperação
                   {report?.frozen && <span className="ml-2 text-xs font-normal text-[var(--color-text-muted)]">(congelada na finalização)</span>}
                 </h3>
-                <div className="flex gap-1 rounded-full border p-0.5 text-xs border-[var(--color-border)]" role="tablist" aria-label="método">
+                <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+                ver por
+                <div className="flex gap-1 rounded-full border p-0.5 text-xs border-[var(--color-border)]" role="tablist" aria-label="ver a recuperação pelo método">
                   {(['molde', 'gauss'] as const).map((m) => (
                     <button
                       key={m}
@@ -441,6 +445,8 @@ export function PostRunStudiesTab({
                     </button>
                   ))}
                 </div>
+                {viewMethod && viewMethod !== detail.method && <span className="text-[#b26a00]">(comparação — o oficial é {METHOD_LABEL[detail.method]})</span>}
+                </span>
               </div>
               {detail.tokens.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-muted)]">
