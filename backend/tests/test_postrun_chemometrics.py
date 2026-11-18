@@ -185,3 +185,12 @@ def test_study_classes_round_trip_and_validation(user_client, jobs):
     assert user_client.put(f"/api/postrun/studies/{sid}/classes", json=dup).status_code == 400
     out = {"classes": [{"id": "a", "name": "1"}], "assign": {"Outro/job.B00": "a"}}
     assert user_client.put(f"/api/postrun/studies/{sid}/classes", json=out).status_code == 400
+
+
+def test_pca_on_a_subset_of_runs(user_client, jobs):
+    sid = _study(user_client, jobs)
+    tokens = user_client.get(f"/api/postrun/studies/{sid}").json()["tokens"]
+    body = user_client.post(f"/api/postrun/studies/{sid}/pca", json={"tokens": tokens[:4]}).json()
+    assert [r["token"] for r in body["runs"]] == tokens[:4] and len(body["scores"]) == 4
+    assert user_client.post(f"/api/postrun/studies/{sid}/pca", json={"tokens": tokens[:2]}).status_code == 400  # < 3
+    assert user_client.post(f"/api/postrun/studies/{sid}/pca", json={"tokens": ["Outro/x.B00"]}).status_code == 400

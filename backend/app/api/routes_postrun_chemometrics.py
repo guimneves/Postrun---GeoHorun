@@ -38,6 +38,9 @@ class PrepIn(BaseModel):
     t_min: float | None = None
     t_max: float | None = None
     step: float = 1.0
+    # só estas corridas do estudo (18/11/2026: "selecionar umas amostras no
+    # gráfico e calcular de novo só com elas"); None = todas
+    tokens: list[str] | None = None
 
 
 class PCAIn(PrepIn):
@@ -167,7 +170,14 @@ def _matrix(session: SessionDep, s: PostrunStudy, p: PrepIn, default_norm: str, 
     curves: list[tuple[np.ndarray, np.ndarray]] = []
     errors: list[str] = []
     excluded: list[str] = []
-    for t in _ids(s.tokens):
+    study_tokens = _ids(s.tokens)
+    if p.tokens is not None:
+        wanted = set(p.tokens)
+        outside = wanted - set(study_tokens)
+        if outside:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"corrida fora do estudo: {sorted(outside)[0]}")
+        study_tokens = [t for t in study_tokens if t in wanted]
+    for t in study_tokens:
         try:
             info = _info(session, t, infos)
             if only_complete and not info.summary.composition:

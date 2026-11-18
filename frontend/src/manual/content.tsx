@@ -679,7 +679,10 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             <strong>Shift+clique</strong> (soma; na lista, um intervalo) ou arraste um retângulo — e aplique a classe com um
             clique ou com as teclas <strong>1–9</strong> (0 tira, Esc limpa). As classes ficam guardadas no estudo e só
             mudam a cor dos pontos (&quot;colorir por classe&quot;), para comparar os agrupamentos com o que se sabe das
-            amostras; também dá para colorir por ciclo e por método.
+            amostras; também dá para colorir por ciclo e por método. Com corridas selecionadas, <strong>PCA só com elas</strong> recalcula a PCA usando só esse grupo (ex.: só
+            os charutos, para ver a estrutura dentro dele) e <strong>PCA sem elas</strong> recalcula sem elas (ex.: tirar um
+            outlier e ver se os agrupamentos se mantêm); um aviso mostra quantas corridas entraram, e{' '}
+            <em>voltar a todas as corridas</em> desfaz. Nada é apagado do estudo.
           </li>
           <li>
             <strong>PLS</strong> — um modelo por material que prevê a massa (mg) ou a fração (%) pela curva. Usa os puros e

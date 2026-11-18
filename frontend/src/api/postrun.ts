@@ -1079,6 +1079,8 @@ export interface ChemPrepIn {
   t_min?: number | null
   t_max?: number | null
   step?: number
+  /** só estas corridas do estudo (null = todas) */
+  tokens?: string[] | null
 }
 
 export interface ChemPrep {

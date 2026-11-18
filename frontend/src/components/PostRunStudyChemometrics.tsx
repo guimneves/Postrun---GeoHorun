@@ -156,6 +156,8 @@ function ClassesPanel({
   runs,
   saveState,
   saveError,
+  onOnly,
+  onWithout,
 }: {
   cls: StudyClasses
   update: (c: StudyClasses) => void
@@ -164,6 +166,9 @@ function ClassesPanel({
   runs: ChemRun[]
   saveState: string
   saveError: string | null
+  /** recalcular a PCA só com estas corridas / sem estas (18/11/2026) */
+  onOnly?: (tokens: string[]) => void
+  onWithout?: (tokens: string[]) => void
 }) {
   const [showList, setShowList] = useState(false)
   const anchor = useRef<number | null>(null)
@@ -318,6 +323,29 @@ function ClassesPanel({
             <button type="button" className="rounded-full px-2 py-0.5 text-[var(--color-text-muted)] hover:underline" onClick={() => apply(null)} title="tecla 0">
               tirar da classe
             </button>
+            {(onOnly || onWithout) && <span className="mx-1 h-4 w-px bg-[var(--color-border)]" aria-hidden />}
+            {onOnly && (
+              <button
+                type="button"
+                disabled={selected.length < 3}
+                onClick={() => onOnly(selected)}
+                className="rounded-full border px-2 py-0.5 font-medium hover:bg-[var(--color-bg)] disabled:opacity-45 border-[var(--color-primary)] text-[var(--color-primary)]"
+                title={selected.length < 3 ? 'a PCA precisa de pelo menos 3 corridas' : 'recalcula a PCA usando só as corridas selecionadas'}
+              >
+                PCA só com elas
+              </button>
+            )}
+            {onWithout && (
+              <button
+                type="button"
+                disabled={runs.length - selected.length < 3}
+                onClick={() => onWithout(runs.filter((r) => !sel.has(r.token)).map((r) => r.token))}
+                className="rounded-full border px-2 py-0.5 font-medium hover:bg-[var(--color-bg)] disabled:opacity-45 border-[var(--color-primary)] text-[var(--color-primary)]"
+                title="recalcula a PCA sem as corridas selecionadas (ex.: um outlier) — veja se a estrutura muda"
+              >
+                PCA sem elas
+              </button>
+            )}
             <button type="button" className="ml-auto text-[var(--color-text-muted)] hover:underline" onClick={() => setSelected([])} title="Esc">
               limpar seleção
             </button>
@@ -484,15 +512,15 @@ function Explained({ explained, k }: { explained: number[]; k: number }) {
   )
 }
 
-function useRun<T>(fn: () => Promise<T>) {
+function useRun<T, A extends unknown[] = []>(fn: (...args: A) => Promise<T>) {
   const [data, setData] = useState<T | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  async function run() {
+  async function run(...args: A) {
     setBusy(true)
     setError(null)
     try {
-      setData(await fn())
+      setData(await fn(...args))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro ao calcular')
     } finally {
@@ -504,10 +532,19 @@ function useRun<T>(fn: () => Promise<T>) {
 
 // ------------------------------------------------------------------------ PCA
 
-export function PostRunStudyPCA({ studyId }: { studyId: number }) {
+export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; totalRuns: number }) {
   const [prep, setPrep] = useState<ChemPrepIn>({ normalize: 'area', derivative: 0, align: false })
   const [nComp, setNComp] = useState(4)
-  const { data, busy, error, run } = useRun(() => studyApi.pca(studyId, { ...prep, n_comp: nComp }))
+  // subconjunto das corridas (null = todas do estudo) — "PCA só com / sem as selecionadas"
+  const [subset, setSubset] = useState<string[] | null>(null)
+  const { data, busy, error, run } = useRun((tokens?: string[] | null) =>
+    studyApi.pca(studyId, { ...prep, n_comp: nComp, tokens: tokens === undefined ? subset : tokens }),
+  )
+  function recompute(tokens: string[] | null) {
+    setSubset(tokens)
+    setSelected([])
+    void run(tokens)
+  }
   const [pcX, setPcX] = useState(0)
   const [pcY, setPcY] = useState(1)
   const [colorBy, setColorBy] = useState<ColorBy>('grupo')
@@ -633,6 +670,17 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
       {data && (
         <>
           <MatrixLine prep={data.prep} n={data.runs.length} />
+          {subset && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-1.5 text-xs border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]">
+              <span>
+                PCA com <strong>{data.runs.length}</strong> de {totalRuns} corridas do estudo (escolhidas por você). Os eixos, a
+                variância e os limites de T² e Q são deste conjunto.
+              </span>
+              <button type="button" className="ml-auto font-medium text-[var(--color-primary)] hover:underline" onClick={() => recompute(null)} disabled={busy}>
+                voltar a todas as corridas
+              </button>
+            </div>
+          )}
           {data.errors.length > 0 && <p className="text-[11px] text-[var(--color-warning,#b26a00)]">Atenção: {data.errors.join('; ')}</p>}
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -660,6 +708,8 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
             runs={runs}
             saveState={classes.state}
             saveError={classes.error}
+            onOnly={(ts) => recompute(ts)}
+            onWithout={(ts) => recompute(ts)}
           />
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
