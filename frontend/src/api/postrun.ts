@@ -965,7 +965,10 @@ export const studyApi = {
   // PCA e PLS das curvas (17/11/2026)
   classes: (id: number) => api.get<StudyClasses>(`/postrun/studies/${id}/classes`),
   setClasses: (id: number, body: StudyClasses) => api.put<StudyClasses>(`/postrun/studies/${id}/classes`, body),
-  pca: (id: number, body: ChemPrepIn & { n_comp?: number }) => api.post<StudyPCA>(`/postrun/studies/${id}/pca`, body),
+  pca: (
+    id: number,
+    body: ChemPrepIn & { n_comp?: number; blocks?: string[] | null; block_weights?: Record<string, number>; delays_s?: Record<string, number> },
+  ) => api.post<StudyPCA>(`/postrun/studies/${id}/pca`, body),
   pls: (id: number, body: ChemPrepIn & { target: PlsTarget; cv: PlsCv; n_lv?: number | null; max_lv?: number }) =>
     api.post<StudyPLS>(`/postrun/studies/${id}/pls`, body),
   // F3: validação independente
@@ -1107,7 +1110,19 @@ export interface ChemRun {
   shift_c: number
 }
 
+export interface ChemBlock {
+  name: string
+  weight: number
+  scale: number
+  delay_s: number
+  empty: boolean
+}
+
 export interface StudyPCA {
+  /** multibloco (vários detectores): x, mean e loadings concatenados, um bloco de len(grid) por detector */
+  blocks: ChemBlock[]
+  q_block: number[][]
+  q_block_limit: (number | null)[]
   prep: ChemPrep
   grid: number[]
   runs: ChemRun[]

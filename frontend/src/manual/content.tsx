@@ -682,7 +682,14 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             amostras; também dá para colorir por ciclo e por método. Com corridas selecionadas, <strong>PCA só com elas</strong> recalcula a PCA usando só esse grupo (ex.: só
             os charutos, para ver a estrutura dentro dele) e <strong>PCA sem elas</strong> recalcula sem elas (ex.: tirar um
             outlier e ver se os agrupamentos se mantêm); um aviso mostra quantas corridas entraram, e{' '}
-            <em>voltar a todas as corridas</em> desfaz. Nada é apagado do estudo.
+            <em>voltar a todas as corridas</em> desfaz. Nada é apagado do estudo. <strong>PCA multibloco</strong>: marque mais de um detector (FID, CO, CO2, SO2) e
+            eles entram lado a lado na mesma matriz, cada um escalonado para pesar igual (variância total 1 — Westerhuis,
+            Kourti e MacGregor, 1998), com <strong>peso</strong> e <strong>atraso</strong> (s) por detector. Os detectores
+            usam a mesma janela da corrida, com linha de base reta pelas pontas. A tela mostra a matriz de cada detector, os
+            loadings de cada um (onde está a diferença: em que detector e em que temperatura) e o Q de cada um (em que
+            detector a corrida foge do modelo). Um detector só com ruído (ex.: SO2 em polímeros) também ganha peso 1 e
+            dilui a PCA — dê peso menor ou 0. Atraso padrão 0: no padrão SMTA, CO e CO2 não mostraram atraso em relação ao
+            FID, e o deslocamento do SO2 é químico.
           </li>
           <li>
             <strong>PLS</strong> — um modelo por material que prevê a massa (mg) ou a fração (%) pela curva. Usa os puros e

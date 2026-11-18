@@ -85,40 +85,84 @@ def tmax_of(grid: np.ndarray, y: np.ndarray) -> float:
 def preprocess(grid: np.ndarray, X: np.ndarray, masses: np.ndarray | None, prep: Prep) -> tuple[np.ndarray, list[float]]:
     """Normalização → alinhamento → derivada. Devolve X tratada e o
     deslocamento aplicado a cada corrida (°C; zeros sem alinhamento)."""
+    Xs, shifts = preprocess_blocks(grid, [X], masses, prep)
+    return Xs[0], shifts
+
+
+def preprocess_blocks(grid: np.ndarray, Xs: list[np.ndarray], masses: np.ndarray | None,
+                      prep: Prep) -> tuple[list[np.ndarray], list[float]]:
+    """O mesmo para vários blocos (um por detector, PCA multibloco): a
+    normalização (área ou altura) e o alinhamento saem do 1º bloco e valem
+    para todos — a proporção entre os detectores de uma corrida se mantém;
+    a derivada é de cada bloco, sem atravessar a fronteira entre eles."""
     if prep.normalize not in NORMALIZATIONS:
         raise ChemometricsError(f"normalização inválida: {prep.normalize}")
     if prep.derivative not in (0, 1, 2):
         raise ChemometricsError("derivada deve ser 0, 1 ou 2")
-    X = np.array(X, dtype=float)
+    Xs = [np.array(X, dtype=float) for X in Xs]
+    first = Xs[0]
+    factor = None
     if prep.normalize == "mass":
         if masses is None or np.any(~np.isfinite(masses)) or np.any(masses <= 0):
             raise ChemometricsError("normalizar pela massa exige a massa de todas as corridas")
-        X = X / masses[:, None]
+        factor = masses
     elif prep.normalize == "area":
-        area = np.trapezoid(X, grid, axis=1) if hasattr(np, "trapezoid") else np.trapz(X, grid, axis=1)
-        if np.any(area <= 0):
+        factor = np.trapezoid(first, grid, axis=1) if hasattr(np, "trapezoid") else np.trapz(first, grid, axis=1)
+        if np.any(factor <= 0):
             raise ChemometricsError("alguma corrida tem área ≤ 0 na faixa — não dá para normalizar pela área")
-        X = X / area[:, None]
     elif prep.normalize == "max":
-        top = X.max(axis=1)
-        if np.any(top <= 0):
+        factor = first.max(axis=1)
+        if np.any(factor <= 0):
             raise ChemometricsError("alguma corrida não tem sinal positivo na faixa")
-        X = X / top[:, None]
-    shifts = [0.0] * len(X)
+    if factor is not None:
+        Xs = [X / factor[:, None] for X in Xs]
+    shifts = [0.0] * len(first)
     if prep.align:
-        tm = np.array([tmax_of(grid, row) for row in X])
+        tm = np.array([tmax_of(grid, row) for row in Xs[0]])
         ref = float(np.median(tm))
-        for i in range(len(X)):
+        for i in range(len(first)):
             d = float(tm[i] - ref)
             shifts[i] = -d
-            X[i] = np.interp(grid + d, grid, X[i], left=X[i][0], right=X[i][-1])
+            for X in Xs:
+                X[i] = np.interp(grid + d, grid, X[i], left=X[i][0], right=X[i][-1])
     if prep.derivative:
         step = float(grid[1] - grid[0])
         win = max(5, int(round(prep.window_c / step)) | 1)
-        if win >= X.shape[1]:
+        if win >= first.shape[1]:
             raise ChemometricsError("janela da derivada maior que a faixa")
-        X = savgol_filter(X, win, 2, deriv=prep.derivative, delta=step, axis=1)
-    return X, shifts
+        Xs = [savgol_filter(X, win, 2, deriv=prep.derivative, delta=step, axis=1) for X in Xs]
+    return Xs, shifts
+
+
+def block_scale(Xs: list[np.ndarray], weights: list[float], eps: float = 1e-12) -> tuple[list[np.ndarray], list[float], list[bool]]:
+    """Escalonamento por bloco (Westerhuis, Kourti e MacGregor, 1998): cada
+    bloco dividido pela raiz da sua variância total (centrada) e multiplicado
+    pelo peso — sem isso, o detector de números maiores manda na PCA. Bloco
+    sem variância (ex.: SO2 sem sinal) fica com peso 0 em vez de virar NaN.
+    Devolve os blocos SEM centrar (a PCA centra)."""
+    out, scales, empty = [], [], []
+    for X, w in zip(Xs, weights):
+        Xc = X - X.mean(axis=0)
+        sc = float(np.sqrt(Xc.var(axis=0).sum()))
+        scales.append(sc)
+        empty.append(sc < eps)
+        out.append(X * (0.0 if sc < eps else w / sc))
+    return out, scales, empty
+
+
+def block_residuals(X: np.ndarray, res: "PCAResult", K: int, alpha: float = 0.95) -> tuple[np.ndarray, list[float | None]]:
+    """Q de cada bloco (onde a corrida foge do modelo: em qual detector) e o
+    limite de 95 % de cada um (aproximação de Box: g·χ²(h), g = var/2média,
+    h = 2média²/var dos Q do próprio conjunto)."""
+    E = (X - res.mean) - res.scores @ res.loadings.T
+    L = E.shape[1] // K
+    Qb = np.stack([np.sum(E[:, k * L:(k + 1) * L] ** 2, axis=1) for k in range(K)], axis=1)
+    lims: list[float | None] = []
+    for k in range(K):
+        q = Qb[:, k]
+        m, v = float(q.mean()), float(q.var(ddof=1)) if len(q) > 1 else 0.0
+        lims.append(float(v / (2 * m) * stats.chi2.ppf(alpha, 2 * m * m / v)) if m > 0 and v > 0 else None)
+    return Qb, lims
 
 
 # --------------------------------------------------------------------- PCA

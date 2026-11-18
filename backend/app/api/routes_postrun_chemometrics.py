@@ -45,6 +45,13 @@ class PrepIn(BaseModel):
 
 class PCAIn(PrepIn):
     n_comp: int = 4
+    # PCA multibloco (18/11/2026): os detectores da mesma curva do estudo,
+    # concatenados — ex. ["FID", "CO", "CO2", "SO2"]; None/1 = só o canal do estudo
+    blocks: list[str] | None = None
+    block_weights: dict[str, float] = {}
+    # atraso de cada detector em SEGUNDOS (do equipamento; padrão 0). A
+    # temperatura de cada ponto passa a ser a de quando o gás saiu da amostra.
+    delays_s: dict[str, float] = {}
 
 
 class PLSIn(PrepIn):
@@ -78,6 +85,14 @@ class PrepOut(BaseModel):
     step: float
 
 
+class BlockOut(BaseModel):
+    name: str
+    weight: float
+    scale: float
+    delay_s: float = 0.0
+    empty: bool = False  # sem variância: entrou com peso 0
+
+
 class PCAOut(BaseModel):
     prep: PrepOut
     grid: list[float]
@@ -93,6 +108,10 @@ class PCAOut(BaseModel):
     q_limit: float | None = None
     materials: list[str] = []
     errors: list[str] = []
+    # multibloco: x, mean e loadings vêm concatenados (K blocos de len(grid))
+    blocks: list[BlockOut] = []
+    q_block: list[list[float]] = []  # n × K
+    q_block_limit: list[float | None] = []
 
 
 class PLSPredOut(BaseModel):
@@ -164,10 +183,43 @@ def _run_out(info: _AnalysisInfo) -> ChemRunOut:
     )
 
 
-def _matrix(session: SessionDep, s: PostrunStudy, p: PrepIn, default_norm: str, only_complete: bool = False):
+def _robust_linear(y: np.ndarray, n: int = 5) -> np.ndarray:
+    """Linha de base reta pela MÉDIA das pontas da janela (n pontos de cada
+    lado) — nos detectores de infravermelho, ruidosos, um ponto só da ponta
+    entortaria a linha."""
+    if len(y) < 2 * n + 2:
+        return y - np.linspace(y[0], y[-1], len(y))
+    return y - np.linspace(float(np.mean(y[:n])), float(np.mean(y[-n:])), len(y))
+
+
+def _block_curve(analysis, s: PostrunStudy, token: str, ch: str, span: tuple, delay_s: float):
+    """Sinal de um detector na janela da corrida: o canal do estudo com a
+    linha de base salva; os outros detectores da mesma curva, na mesma janela,
+    com linha de base reta pelas pontas. Com atraso, a temperatura de cada
+    ponto vira a de quando o gás saiu da amostra (t − atraso)."""
+    curve_name, main_ch = s.channel.split(":", 1)
+    a, b, bm, fb = span
+    if ch == main_ch:
+        spec = DeconvSpecIn(token=token, channel=s.channel, start_idx=a, end_idx=b, baseline_mode=bm, fixed_baseline=fb)
+        _xs, y, t, temps, _tb = _window(analysis, spec)
+    else:
+        spec = DeconvSpecIn(token=token, channel=f"{curve_name}:{ch}", start_idx=a, end_idx=b, baseline_mode="linear")
+        _xs, y, t, temps, _tb = _window(analysis, spec)
+        y = _robust_linear(np.asarray(y, dtype=float))
+    temps = np.asarray(temps, dtype=float)
+    if delay_s:
+        temps = np.interp(np.asarray(t, dtype=float) - delay_s, np.asarray(t, dtype=float), temps)
+    return chem.monotonic(temps, y)
+
+
+def _matrix(session: SessionDep, s: PostrunStudy, p: PrepIn, default_norm: str, only_complete: bool = False,
+            blocks: list[str] | None = None, delays_s: dict[str, float] | None = None):
     infos: dict[str, _AnalysisInfo] = {}
     runs: list[ChemRunOut] = []
-    curves: list[tuple[np.ndarray, np.ndarray]] = []
+    main_ch = s.channel.split(":", 1)[-1]
+    chans = list(dict.fromkeys(blocks or [main_ch]))
+    delays = delays_s or {}
+    per_run: list[list[tuple[np.ndarray, np.ndarray]]] = []
     errors: list[str] = []
     excluded: list[str] = []
     study_tokens = _ids(s.tokens)
@@ -183,22 +235,22 @@ def _matrix(session: SessionDep, s: PostrunStudy, p: PrepIn, default_norm: str, 
             if only_complete and not info.summary.composition:
                 excluded.append(info.summary.filename)
                 continue
-            a, b, bm, fb = _span(session, s, t)
-            spec = DeconvSpecIn(token=t, channel=s.channel, start_idx=a, end_idx=b, baseline_mode=bm, fixed_baseline=fb)
-            _xs, y, _t, temps, _tb = _window(info.analysis, spec)
+            span = _span(session, s, t)
+            blocks_of_run = [_block_curve(info.analysis, s, t, ch, span, float(delays.get(ch, 0.0))) for ch in chans]
         except HTTPException as exc:
             errors.append(f"{t.rsplit('/', 1)[-1]}: {exc.detail}")
             continue
-        temps, y = chem.monotonic(temps, y)
-        if len(temps) < 10:
+        if any(len(bt) < 10 for bt, _ in blocks_of_run):
             errors.append(f"{t.rsplit('/', 1)[-1]}: janela curta demais")
             continue
         runs.append(_run_out(info))
-        curves.append((temps, y))
+        per_run.append(blocks_of_run)
+    curves = [br[0] for br in per_run]  # 1º bloco: mensagens e Tmax
+    all_curves = [c for br in per_run for c in br]
     if len(curves) < 3:
         detail = "são precisas pelo menos 3 corridas com região ou deconvolução salva"
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail + (f" ({'; '.join(errors[:3])})" if errors else ""))
-    lo, hi = chem.common_range(curves)
+    lo, hi = chem.common_range(all_curves)
     if p.t_min is not None or p.t_max is not None:
         # faixa escolhida na tela: vale como está; fora da janela de uma
         # corrida o sinal (já sem a linha de base) conta como zero
@@ -222,9 +274,14 @@ def _matrix(session: SessionDep, s: PostrunStudy, p: PrepIn, default_norm: str, 
                 "ou informe a faixa (°C) na tela — fora da janela de cada corrida o sinal conta como zero."))
     norm = p.normalize or default_norm
     try:
-        grid, X = chem.to_grid(curves, t_min, t_max, p.step, pad_zero=p.t_min is not None or p.t_max is not None)
+        pad = p.t_min is not None or p.t_max is not None
+        grids = [chem.to_grid([br[k] for br in per_run], t_min, t_max, p.step, pad_zero=pad) for k in range(len(chans))]
+        grid = grids[0][0]
+        X = grids[0][1]
         masses = np.array([r.mass_mg or np.nan for r in runs], dtype=float)
-        Xp, shifts = chem.preprocess(grid, X, masses, chem.Prep(normalize=norm, derivative=p.derivative, align=p.align))
+        Xs, shifts = chem.preprocess_blocks(grid, [g[1] for g in grids], masses,
+                                            chem.Prep(normalize=norm, derivative=p.derivative, align=p.align))
+        Xp = Xs[0] if len(Xs) == 1 else Xs
     except chem.ChemometricsError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     for r, row, sh in zip(runs, X, shifts):
@@ -251,11 +308,31 @@ def study_pca(study_id: int, payload: PCAIn, session: SessionDep, _user: Current
     explicada, T² e Q (com os limites de 95 %). Padrão: normalizada pela área
     (compara a FORMA, não a quantidade). Nada é gravado."""
     s = _get(session, study_id)
-    prep, grid, X, runs, errors, _exc, _infos = _matrix(session, s, payload, "area")
+    main_ch = s.channel.split(":", 1)[-1]
+    chans = list(dict.fromkeys(payload.blocks or [main_ch]))
+    if len(chans) > 8:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "no máximo 8 detectores")
+    delays = {ch: float(payload.delays_s.get(ch, 0.0)) for ch in chans}
+    if any(abs(d) > 300 for d in delays.values()):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "atraso fora do razoável (máx. ±300 s)")
+    prep, grid, X, runs, errors, _exc, _infos = _matrix(session, s, payload, "area", blocks=chans, delays_s=delays)
+    blocks_out: list[BlockOut] = []
+    if isinstance(X, list):  # multibloco
+        weights = [max(0.0, float(payload.block_weights.get(ch, 1.0))) for ch in chans]
+        scaled, scales, empty = chem.block_scale(X, weights)
+        for ch, w, sc, e in zip(chans, weights, scales, empty):
+            blocks_out.append(BlockOut(name=ch, weight=0.0 if e else w, scale=sc, delay_s=delays[ch], empty=e))
+            if e:
+                errors.append(f"o detector {ch} não varia entre as corridas (sem sinal?) — entrou com peso 0")
+        X = np.hstack(scaled)
     try:
         res = chem.pca(X, max(1, min(payload.n_comp, 10)))
     except chem.ChemometricsError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    q_block, q_lim = ([], [])
+    if blocks_out:
+        Qb, q_lim = chem.block_residuals(X, res, len(blocks_out))
+        q_block = [_r(row) for row in Qb]
     scale = float(np.max(np.abs(X))) or 1.0
     return PCAOut(
         prep=prep, grid=_r(grid, 3), runs=runs,
@@ -264,6 +341,7 @@ def study_pca(study_id: int, payload: PCAIn, session: SessionDep, _user: Current
         scores=[_r(row) for row in res.scores], loadings=[_r(col) for col in res.loadings.T],
         t2=_r(res.t2), q=_r(res.q), t2_limit=res.t2_limit, q_limit=res.q_limit,
         materials=_materials(runs), errors=errors,
+        blocks=blocks_out, q_block=q_block, q_block_limit=q_lim,
     )
 
 

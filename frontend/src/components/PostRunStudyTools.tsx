@@ -341,7 +341,7 @@ function ToolBody({
             janela e linha de base salvas), e a PCA gira os eixos para a direção em que as corridas mais diferem. Exploração,
             sem usar a composição — ela só colore os pontos. Nada é gravado.
           </Help>
-          <PostRunStudyPCA key={detail.id} studyId={detail.id} totalRuns={detail.tokens.length} />
+          <PostRunStudyPCA key={detail.id} studyId={detail.id} totalRuns={detail.tokens.length} channel={detail.channel} />
         </>
       )
     case 'pls':

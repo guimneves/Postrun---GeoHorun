@@ -194,3 +194,56 @@ def test_pca_on_a_subset_of_runs(user_client, jobs):
     assert [r["token"] for r in body["runs"]] == tokens[:4] and len(body["scores"]) == 4
     assert user_client.post(f"/api/postrun/studies/{sid}/pca", json={"tokens": tokens[:2]}).status_code == 400  # < 3
     assert user_client.post(f"/api/postrun/studies/{sid}/pca", json={"tokens": ["Outro/x.B00"]}).status_code == 400
+
+
+# ------------------------------------------------------------- multibloco
+
+def test_block_scaling_gives_each_block_its_weight():
+    rng = np.random.default_rng(11)
+    big = rng.normal(scale=1000.0, size=(10, 30))  # FID: números grandes
+    small = rng.normal(scale=0.01, size=(10, 30))  # SO2: números pequenos
+    flat = np.ones((10, 30))  # detector sem variação
+    out, scales, empty = chem.block_scale([big, small, flat], [1.0, 2.0, 1.0])
+    var = [float((b - b.mean(0)).var(0).sum()) for b in out]
+    assert var[0] == pytest.approx(1.0) and var[1] == pytest.approx(4.0)  # peso² 
+    assert empty == [False, False, True] and not np.isnan(np.hstack(out)).any() and var[2] == 0
+
+
+def test_block_residuals_add_up_and_find_the_odd_detector():
+    rng = np.random.default_rng(12)
+    t = rng.normal(size=(15, 1))
+    blocks = [t @ rng.normal(size=(1, 20)) + rng.normal(scale=0.01, size=(15, 20)) for _ in range(3)]
+    blocks[2][7] += rng.normal(scale=0.5, size=20)  # corrida 7 estranha só no 3º detector
+    out, *_ = chem.block_scale(blocks, [1.0, 1.0, 1.0])
+    X = np.hstack(out)
+    res = chem.pca(X, 1)
+    Qb, lims = chem.block_residuals(X, res, 3)
+    assert np.allclose(Qb.sum(1), res.q)
+    assert int(np.argmax(Qb[:, 2])) == 7 and Qb[7, 2] > lims[2] and Qb[7, 0] < Qb[7, 2]
+
+
+def test_preprocess_blocks_normalizes_by_the_first_block():
+    grid = np.arange(400, 501, 1.0)
+    fid = np.vstack([np.exp(-0.5 * ((grid - 450) / 10) ** 2) * h for h in (1.0, 3.0)])
+    co = fid * 0.1
+    (f2, c2), _ = chem.preprocess_blocks(grid, [fid, co], None, chem.Prep(normalize="area"))
+    assert np.allclose(f2[0], f2[1]) and np.allclose(c2, 0.1 * f2)  # a razão CO/FID de cada corrida se mantém
+
+
+def test_multiblock_pca_route(user_client, jobs):
+    sid = _study(user_client, jobs)
+    body = {"blocks": ["FID", "CO", "CO2", "SO2"], "block_weights": {"CO2": 2.0}, "delays_s": {"CO": 3.0}}
+    r = user_client.post(f"/api/postrun/studies/{sid}/pca", json=body)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    p = len(out["grid"])
+    assert [b["name"] for b in out["blocks"]] == ["FID", "CO", "CO2", "SO2"]
+    assert len(out["x"][0]) == 4 * p and len(out["loadings"][0]) == 4 * p
+    assert len(out["q_block"]) == len(out["runs"]) and len(out["q_block"][0]) == 4
+    assert out["blocks"][1]["delay_s"] == 3.0 and out["blocks"][2]["weight"] == 2.0
+    assert np.allclose(np.sum(out["q_block"], axis=1), out["q"], rtol=1e-4, atol=1e-9)
+    # um canal só = a PCA de sempre
+    single = user_client.post(f"/api/postrun/studies/{sid}/pca", json={"blocks": ["FID"]}).json()
+    assert single["blocks"] == [] and len(single["x"][0]) == p
+    bad = user_client.post(f"/api/postrun/studies/{sid}/pca", json={"blocks": ["FID", "XYZ"]}).json()
+    assert "XYZ" in " ".join(bad.get("errors", [])) or "detail" in bad

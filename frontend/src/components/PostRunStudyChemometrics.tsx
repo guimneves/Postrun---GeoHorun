@@ -475,13 +475,104 @@ function PrepControls({
   )
 }
 
-function MatrixLine({ prep, n }: { prep: ChemPrep; n: number }) {
+const DETECTORS: Record<string, string[]> = { pyro: ['FID', 'CO', 'CO2', 'SO2'], oxi: ['CO', 'CO2', 'SO2'] }
+
+/** PCA multibloco (18/11/2026): quais detectores entram, o peso e o atraso de cada um. */
+function DetectorControls({
+  available,
+  main,
+  dets,
+  setDets,
+  weights,
+  setWeights,
+  delays,
+  setDelays,
+}: {
+  available: string[]
+  main: string
+  dets: string[]
+  setDets: (d: string[]) => void
+  weights: Record<string, number>
+  setWeights: (w: Record<string, number>) => void
+  delays: Record<string, number>
+  setDelays: (d: Record<string, number>) => void
+}) {
+  const toggle = (d: string) => {
+    const on = dets.includes(d)
+    const next = on ? dets.filter((x) => x !== d) : [...dets, d]
+    if (next.length === 0) return
+    // ordem fixa (o canal do estudo primeiro: a normalização e o alinhamento saem dele)
+    setDets([main, ...available.filter((x) => x !== main)].filter((x) => next.includes(x)))
+  }
+  const num = (s: string, dflt: number) => {
+    const v = Number(s.replace(',', '.'))
+    return Number.isFinite(v) ? v : dflt
+  }
+  return (
+    <div className="flex flex-col gap-1.5 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[var(--color-text-muted)]">Detectores</span>
+        {available.map((d) => (
+          <label key={d} className="flex items-center gap-1 rounded-full border px-2 py-0.5 border-[var(--color-border)]" style={dets.includes(d) ? { borderColor: 'var(--color-primary)' } : undefined}>
+            <input type="checkbox" checked={dets.includes(d)} onChange={() => toggle(d)} />
+            {d}
+          </label>
+        ))}
+        <span className="text-[11px] text-[var(--color-text-muted)]">
+          {dets.length > 1 ? 'PCA multibloco: os detectores lado a lado na mesma matriz' : 'marque mais de um para a PCA multibloco'}
+        </span>
+      </div>
+      {dets.length > 1 && (
+        <div className="flex flex-wrap items-start gap-3">
+          <table className="text-left">
+            <thead className="text-[11px] text-[var(--color-text-muted)]">
+              <tr>
+                <th className="pr-3 font-normal">detector</th>
+                <th className="pr-3 font-normal">peso</th>
+                <th className="pr-3 font-normal">atraso (s)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dets.map((d) => (
+                <tr key={d}>
+                  <td className="pr-3 font-medium">{d}</td>
+                  <td className="pr-3">
+                    <input className={`${inputClass} w-16 py-0.5`} value={weights[d] ?? 1} onChange={(e) => setWeights({ ...weights, [d]: num(e.target.value, 1) })} />
+                  </td>
+                  <td className="pr-3">
+                    <input className={`${inputClass} w-16 py-0.5`} value={delays[d] ?? 0} onChange={(e) => setDelays({ ...delays, [d]: num(e.target.value, 0) })} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="max-w-xl text-[11px] leading-snug text-[var(--color-text-muted)]">
+            <strong>Peso</strong>: cada detector entra com a mesma importância (variância total 1 — escalonamento por bloco,
+            Westerhuis, Kourti e MacGregor, 1998); peso 2 = o dobro; 0 = fora. <strong>Atraso</strong>: quanto o gás leva para
+            chegar a esse detector, em segundos, do equipamento. Padrão 0: no padrão SMTA (17/07/2026) CO e CO2 não mostraram
+            atraso em relação ao FID; o SO2 sai ~24 s depois, mas por química (o enxofre se solta depois), não pelo detector
+            — corrigir apagaria essa diferença real.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MatrixLine({ prep, n, blocks = [] }: { prep: ChemPrep; n: number; blocks?: string[] }) {
   const p = Math.round((prep.t_max - prep.t_min) / prep.step) + 1
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[var(--color-surface)] px-3 py-2 text-xs">
       <span className="font-mono font-semibold">
-        X = {n} corridas × {p} temperaturas
+        {blocks.length > 1
+          ? `X = ${n} corridas × (${blocks.length} detectores × ${p} temperaturas) = ${n} × ${blocks.length * p}`
+          : `X = ${n} corridas × ${p} temperaturas`}
       </span>
+      {blocks.length > 1 && (
+        <span className="text-[var(--color-text-muted)]">
+          [{blocks.join(' | ')}] lado a lado, cada detector escalonado para pesar igual (× o peso escolhido)
+        </span>
+      )}
       <span className="text-[var(--color-text-muted)]">
         {prep.t_min.toFixed(0)}–{prep.t_max.toFixed(0)} °C, de {prep.step} em {prep.step} °C · normalização {NORM_LABEL[prep.normalize]}
         {prep.derivative ? ` · ${prep.derivative}ª derivada` : ''}
@@ -532,13 +623,26 @@ function useRun<T, A extends unknown[] = []>(fn: (...args: A) => Promise<T>) {
 
 // ------------------------------------------------------------------------ PCA
 
-export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; totalRuns: number }) {
+export function PostRunStudyPCA({ studyId, totalRuns, channel = 'pyro:FID' }: { studyId: number; totalRuns: number; channel?: string }) {
   const [prep, setPrep] = useState<ChemPrepIn>({ normalize: 'area', derivative: 0, align: false })
   const [nComp, setNComp] = useState(4)
+  const [curveName, mainCh] = channel.includes(':') ? channel.split(':', 2) : ['pyro', channel]
+  const available = DETECTORS[curveName]?.includes(mainCh) ? DETECTORS[curveName] : [mainCh]
+  const [dets, setDets] = useState<string[]>([mainCh])
+  const [weights, setWeights] = useState<Record<string, number>>({})
+  const [delays, setDelays] = useState<Record<string, number>>({})
+  const [viewBlock, setViewBlock] = useState(0)
   // subconjunto das corridas (null = todas do estudo) — "PCA só com / sem as selecionadas"
   const [subset, setSubset] = useState<string[] | null>(null)
   const { data, busy, error, run } = useRun((tokens?: string[] | null) =>
-    studyApi.pca(studyId, { ...prep, n_comp: nComp, tokens: tokens === undefined ? subset : tokens }),
+    studyApi.pca(studyId, {
+      ...prep,
+      n_comp: nComp,
+      tokens: tokens === undefined ? subset : tokens,
+      blocks: dets.length > 1 ? dets : null,
+      block_weights: weights,
+      delays_s: delays,
+    }),
   )
   function recompute(tokens: string[] | null) {
     setSubset(tokens)
@@ -587,21 +691,25 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
     setSelected((cur) => (add ? [...new Set([...cur, ...ts])] : ts))
   }
 
+  const K = data?.blocks.length || 1
+  const P = data?.grid.length ?? 0
+  const vb = Math.min(viewBlock, K - 1)
+  const seg = (row: number[], b: number) => (K > 1 ? row.slice(b * P, (b + 1) * P) : row)
   const xSeries = useMemo<LineSeries[]>(() => {
     if (!data) return []
     const out: LineSeries[] = data.x.map((row, i) => ({
       key: data.runs[i].token,
       x: data.grid,
-      y: row,
+      y: seg(row, vb),
       color: color(data.runs[i]),
       width: anyFocus && isFocus(data.runs[i].token) ? 2.6 : 1.1,
       opacity: anyFocus && !isFocus(data.runs[i].token) ? 0.2 : 0.85,
       label: `${stem(data.runs[i].filename)} · ${data.runs[i].group}`,
     }))
-    out.push({ key: '__mean', x: data.grid, y: data.mean, color: 'var(--color-text)', width: 2, dash: '6 4', label: 'média (o centro da nuvem)' })
+    out.push({ key: '__mean', x: data.grid, y: seg(data.mean, vb), color: 'var(--color-text)', width: 2, dash: '6 4', label: 'média (o centro da nuvem)' })
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, color, hover, selSet])
+  }, [data, color, hover, selSet, vb])
 
   const scorePts = useMemo<PlotPoint[]>(() => {
     if (!data || k < 1) return []
@@ -622,12 +730,19 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, k, pcX, pcY, color, selSet, classes.cls])
 
-  const loadSeries = useMemo<LineSeries[]>(() => {
+  // loadings de cada bloco (um gráfico por detector no multibloco)
+  const loadSeriesOf = (b: number): LineSeries[] => {
     if (!data) return []
     const pcs = [...new Set([pcX, pcY])].filter((i) => i < k)
     const cols = ['var(--color-primary)', '#D55E00']
-    return pcs.map((i, j) => ({ key: `pc${i}`, x: data.grid, y: data.loadings[i], color: cols[j], width: 2, label: `loading PC${i + 1}` }))
-  }, [data, pcX, pcY, k])
+    return pcs.map((i, j) => ({ key: `pc${i}`, x: data.grid, y: seg(data.loadings[i], b), color: cols[j], width: 2, label: `loading PC${i + 1}` }))
+  }
+  const loadSeries = loadSeriesOf(0)
+  // em que detector(es) a corrida foge do modelo (Q do bloco acima do limite dele)
+  const qBlocksOver = (i: number) =>
+    data && K > 1
+      ? data.blocks.filter((_, b) => data.q_block_limit[b] != null && data.q_block[i][b] > (data.q_block_limit[b] as number)).map((bl) => bl.name)
+      : []
 
   const outPts = useMemo<PlotPoint[]>(() => {
     if (!data) return []
@@ -651,6 +766,20 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3">
         <PrepControls value={prep} onChange={setPrep} />
+        {available.length > 1 && (
+          <div className="w-full">
+            <DetectorControls
+              available={available}
+              main={mainCh}
+              dets={dets}
+              setDets={setDets}
+              weights={weights}
+              setWeights={setWeights}
+              delays={delays}
+              setDelays={setDelays}
+            />
+          </div>
+        )}
         <label className="flex flex-col gap-1 text-xs text-[var(--color-text-muted)]">
           Componentes
           <select className={`${inputClass} w-20`} value={nComp} onChange={(e) => setNComp(Number(e.target.value))}>
@@ -669,7 +798,7 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
 
       {data && (
         <>
-          <MatrixLine prep={data.prep} n={data.runs.length} />
+          <MatrixLine prep={data.prep} n={data.runs.length} blocks={data.blocks.map((b) => b.name)} />
           {subset && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-1.5 text-xs border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]">
               <span>
@@ -718,6 +847,25 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
               title="A matriz X — cada linha é uma corrida"
               note="As curvas como entram na conta (depois do pré-tratamento). O tracejado é a média: a PCA estuda o quanto cada corrida se afasta dela. Passe o mouse para destacar uma corrida."
             >
+              {K > 1 && (
+                <div className="mb-1 flex flex-wrap gap-1 text-xs" role="tablist" aria-label="detector">
+                  {data.blocks.map((b, i) => (
+                    <button
+                      key={b.name}
+                      type="button"
+                      role="tab"
+                      aria-selected={vb === i}
+                      onClick={() => setViewBlock(i)}
+                      className="rounded-full border px-2 py-0.5 border-[var(--color-border)]"
+                      style={vb === i ? { borderColor: 'var(--color-primary)', color: 'var(--color-primary)', fontWeight: 600 } : undefined}
+                      title={b.empty ? 'sem variação entre as corridas — entrou com peso 0' : `peso ${b.weight} · atraso ${b.delay_s} s`}
+                    >
+                      {b.name}
+                      {b.empty ? ' (vazio)' : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
               <PostRunLinesPlot
                 series={xSeries}
                 xLabel="temperatura (°C)"
@@ -767,13 +915,37 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
               title="Loadings — o porquê, ao longo da temperatura"
               note="O loading de um PC lido como curva: onde é positivo, as corridas com score alto nesse PC têm MAIS sinal (depois do pré-tratamento); onde é negativo, menos. Um lóbulo positivo num pico e negativo no outro = troca de um material pelo outro. Lóbulos nas laterais de um pico = alargamento."
             >
-              <PostRunLinesPlot
-                series={[{ key: '__zero', x: [data.grid[0], data.grid[data.grid.length - 1]], y: [0, 0], color: 'var(--color-border)', width: 1 }, ...loadSeries]}
-                xLabel="temperatura (°C)"
-                yLabel="peso (loading)"
-                height={250}
-                legend={loadSeries.map((s) => ({ label: s.label ?? '', color: s.color }))}
-              />
+              {K > 1 ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {data.blocks.map((b, i) => (
+                    <div key={b.name}>
+                      <span className="text-xs font-medium">{b.name}</span>
+                      <PostRunLinesPlot
+                        series={[{ key: '__zero', x: [data.grid[0], data.grid[data.grid.length - 1]], y: [0, 0], color: 'var(--color-border)', width: 1 }, ...loadSeriesOf(i)]}
+                        xLabel="temperatura (°C)"
+                        yLabel="loading"
+                        height={170}
+                        legend={i === 0 ? loadSeries.map((s) => ({ label: s.label ?? '', color: s.color })) : undefined}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <PostRunLinesPlot
+                  series={[{ key: '__zero', x: [data.grid[0], data.grid[data.grid.length - 1]], y: [0, 0], color: 'var(--color-border)', width: 1 }, ...loadSeries]}
+                  xLabel="temperatura (°C)"
+                  yLabel="peso (loading)"
+                  height={250}
+                  legend={loadSeries.map((s) => ({ label: s.label ?? '', color: s.color }))}
+                />
+              )}
+              {K > 1 && (
+                <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                  Um gráfico por detector, mesma escala de peso: o detector em que o loading é grande é o que mais pesa naquele
+                  PC — ex.: PC1 grande no FID e no CO2 e quase zero no SO2 = a diferença entre as corridas está nos
+                  hidrocarbonetos e no CO2, não no enxofre.
+                </p>
+              )}
             </Step>
           </div>
 
@@ -814,7 +986,9 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
                             ({o.r.group}) —{' '}
                             {[
                               data.t2_limit !== null && o.t2 > data.t2_limit ? 'extrema (T²)' : '',
-                              data.q_limit !== null && o.q > data.q_limit ? 'forma diferente (Q)' : '',
+                              data.q_limit !== null && o.q > data.q_limit
+                                ? `forma diferente (Q)${qBlocksOver(data.runs.indexOf(o.r)).length ? ` — no ${qBlocksOver(data.runs.indexOf(o.r)).join(', ')}` : ''}`
+                                : '',
                             ]
                               .filter(Boolean)
                               .join(' e ')}
@@ -832,6 +1006,19 @@ export function PostRunStudyPCA({ studyId, totalRuns }: { studyId: number; total
                     <br />
                     T² {f(data.t2[pickedIdx])} · Q {f(data.q[pickedIdx], 4)} · Tmax {f(runs[pickedIdx].tmax_c, 0)} °C
                     {runs[pickedIdx].shift_c ? ` (deslocada ${f(runs[pickedIdx].shift_c, 0)} °C)` : ''}
+                    {K > 1 && (
+                      <>
+                        <br />
+                        Q por detector:{' '}
+                        {data.blocks
+                          .map((b, i) => {
+                            const lim = data.q_block_limit[i]
+                            const q = data.q_block[pickedIdx][i]
+                            return `${b.name} ${f(q, 4)}${lim ? ` (${f(q / lim, 1)}× o limite)` : ''}`
+                          })
+                          .join(' · ')}
+                      </>
+                    )}
                   </p>
                 )}
               </div>
