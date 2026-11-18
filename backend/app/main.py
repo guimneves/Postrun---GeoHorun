@@ -19,6 +19,7 @@ from sqlmodel import Session
 from app.api import (
     routes_analysis_rename,
     routes_postrun,
+    routes_postrun_chemometrics,
     routes_postrun_curves,
     routes_postrun_deconv,
     routes_postrun_report,
@@ -67,6 +68,7 @@ app = FastAPI(title="Horun · PostRun · GeoHorun", version="0.1.0", lifespan=li
 
 for _router in (
     routes_postrun.router,
+    routes_postrun_chemometrics.router,
     routes_postrun_curves.router,
     routes_postrun_deconv.router,
     routes_postrun_report.router,

@@ -462,7 +462,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         referência que está num estudo não pode ser apagada (tire-a do estudo antes). Apagar o estudo apaga só o
         "envelope". No detalhe do estudo, as <strong>Ferramentas do estudo</strong> aparecem como cartões com ícone, a
         pergunta que cada uma responde e uma frase do que faz: Validação, Réplicas, Tolerância ótima, Comparar modelos,
-        Interação, Robustez e Picos sobrepostos. Clique num cartão para abrir só aquela ferramenta embaixo (clique de novo,
+        Interação, Robustez, Picos sobrepostos, PCA e PLS. Clique num cartão para abrir só aquela ferramenta embaixo (clique de novo,
         ou em "fechar", para recolher). A <strong>Tolerância ótima</strong> reajusta só as misturas (molde) em várias
         tolerâncias de largura, sem gravar nada, e traça o RMSE da recuperação × a tolerância: a ótima é a menor tolerância
         no mínimo da curva. <strong>Exportar Excel completo</strong> leva tudo; a aba <em>Horun_Resultados</em> é a que o
@@ -639,6 +639,42 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             uma linha descendente = só a soma é determinada).
           </li>
         </ul>
+      </>
+    ),
+  },
+  {
+    id: 'quimiometria',
+    title: 'PCA e PLS (quimiometria das curvas)',
+    body: (
+      <>
+        <p>
+          Duas ferramentas do estudo olham a <strong>curva inteira</strong> em vez dos picos. Cada corrida vira uma linha da
+          matriz X: o sinal na janela e linha de base da deconvolução salva (ou da região salva), interpolado de 1 em 1 °C
+          na faixa que todas as corridas cobrem. Antes da conta, o <strong>pré-tratamento</strong>: normalização (pela área
+          compara a forma; pela massa, o sinal por mg; nenhuma, quantidade e forma), derivada (realça ombros) e alinhamento
+          pelo máximo (corrige o Tmax "andando"). Nada é gravado.
+        </p>
+        <ul>
+          <li>
+            <strong>PCA</strong> — exploração, sem usar a composição. Mostra a matriz X, a variância explicada por
+            componente, os <strong>scores</strong> (cada ponto é uma corrida: réplicas juntas, misturas entre os puros,
+            grupos, deriva entre dias — colorir por composição, dia ou fração de um material), os <strong>loadings</strong>
+            × temperatura (onde está a diferença: lóbulo positivo num pico e negativo no outro = troca de material; lóbulos
+            nas laterais = alargamento) e o gráfico <strong>T² × Q</strong> com os limites de 95 % (extrema × forma
+            diferente).
+          </li>
+          <li>
+            <strong>PLS</strong> — um modelo por material que prevê a massa (mg) ou a fração (%) pela curva. Usa os puros e
+            as misturas com composição completa. A validação cruzada tira uma composição inteira (com as réplicas) por vez;
+            o número de variáveis latentes é o menor com RMSECV até 5 % acima do mínimo. Mostra RMSEC × RMSECV, previsto ×
+            esperado, o vetor de regressão b e o VIP × temperatura, e a recuperação de cada corrida (o mesmo critério da
+            deconvolução, para comparar). A PLS aprende a interação entre os materiais, mas não vale fora das composições da
+            calibração — com poucas composições, tirar um puro da calibração obriga a extrapolar e o erro sai pessimista.
+          </li>
+        </ul>
+        <p>
+          Fundamentos: Wold, Esbensen e Geladi (1987), para a PCA; Geladi e Kowalski (1986), para a PLS.
+        </p>
       </>
     ),
   },

@@ -7,6 +7,7 @@ import { PostRunModelCompare } from './PostRunModelCompare'
 import { PostRunInteractionPanel } from './PostRunInteractionPanel'
 import { PostRunRobustnessPanel } from './PostRunRobustnessPanel'
 import { PostRunIdentifiabilityPanel } from './PostRunIdentifiabilityPanel'
+import { PostRunStudyPCA, PostRunStudyPLS } from './PostRunStudyChemometrics'
 import { cardClass } from '../ui/classes'
 
 // Ferramentas do estudo (pedido do usuário, 16/11/2026: "muitas funções em
@@ -14,7 +15,7 @@ import { cardClass } from '../ui/classes'
 // e visual"). Uma grade de cartões; clicar abre SÓ aquela ferramenta embaixo
 // (antes eram sete cartões empilhados, todos abertos e calculando de uma vez).
 
-type ToolKey = 'validacao' | 'replicas' | 'tolerancia' | 'comparador' | 'interacao' | 'robustez' | 'identificabilidade'
+type ToolKey = 'validacao' | 'replicas' | 'tolerancia' | 'comparador' | 'interacao' | 'robustez' | 'identificabilidade' | 'pca' | 'pls'
 
 function Svg({ children }: { children: ReactNode }) {
   return (
@@ -81,6 +82,28 @@ const ICONS: Record<ToolKey, ReactNode> = {
       <path d="M2 21h20" />
     </Svg>
   ),
+  // nuvem de pontos com os dois eixos novos (PC1 longo, PC2 curto)
+  pca: (
+    <Svg>
+      <circle cx="7" cy="16" r="1.2" fill="currentColor" />
+      <circle cx="10" cy="13.5" r="1.2" fill="currentColor" />
+      <circle cx="12.5" cy="11" r="1.2" fill="currentColor" />
+      <circle cx="15" cy="9.5" r="1.2" fill="currentColor" />
+      <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" />
+      <path d="M4 19L20.5 4" />
+      <path d="M9.5 8.5l5 5" strokeDasharray="2 2" />
+    </Svg>
+  ),
+  // curva → seta → número previsto, sobre a diagonal
+  pls: (
+    <Svg>
+      <path d="M3 21h18M3 21V3" />
+      <path d="M4 20L20 4" strokeDasharray="2.5 2.5" />
+      <circle cx="8" cy="15" r="1.3" fill="currentColor" />
+      <circle cx="12" cy="12.5" r="1.3" fill="currentColor" />
+      <circle cx="16.5" cy="7" r="1.3" fill="currentColor" />
+    </Svg>
+  ),
 }
 
 const TOOLS: { key: ToolKey; title: string; color: string; question: string; what: string }[] = [
@@ -133,6 +156,20 @@ const TOOLS: { key: ToolKey; title: string; color: string; question: string; wha
     question: 'Dá para separar dois materiais de picos parecidos?',
     what: 'Mostra quando o ajuste acerta o total mas não sabe dividir a área (ex.: PEAD e PP) — aí, reporte a soma.',
   },
+  {
+    key: 'pca',
+    title: 'PCA',
+    color: '#0f9fb5',
+    question: 'Como as corridas se agrupam — e quais fogem do padrão?',
+    what: 'Cada curva vira um ponto: réplicas juntas, misturas entre os puros, outliers e deriva entre dias. Os loadings mostram em que temperatura está a diferença.',
+  },
+  {
+    key: 'pls',
+    title: 'PLS',
+    color: '#7b61c9',
+    question: 'Dá para quantificar pela curva inteira, sem deconvoluir?',
+    what: 'Aprende com as misturas conhecidas a prever a massa (ou fração) de cada material — interação incluída. Validação cruzada por composição.',
+  },
 ]
 
 export function PostRunStudyTools({
@@ -149,6 +186,7 @@ export function PostRunStudyTools({
   const empty = detail.tokens.length === 0
   const disabledWhy = (k: ToolKey): string | null => {
     if (empty) return 'o estudo ainda não tem análises'
+    if ((k === 'pca' || k === 'pls') && detail.tokens.length < 3) return 'precisa de pelo menos 3 corridas'
     if (k === 'replicas' && !(report && report.report.runs.length > 0)) return 'sem deconvolução salva neste método'
     return null
   }
@@ -293,6 +331,28 @@ function ToolBody({
             compara com o molde de outro lote, grade ou granulometria.
           </Help>
           <PostRunRobustnessPanel key={detail.id} studyId={detail.id} analyses={detail.analyses} />
+        </>
+      )
+    case 'pca':
+      return (
+        <>
+          <Help>
+            Análise de componentes principais (PCA): cada corrida vira uma linha da matriz X (o sinal em cada temperatura, na
+            janela e linha de base salvas), e a PCA gira os eixos para a direção em que as corridas mais diferem. Exploração,
+            sem usar a composição — ela só colore os pontos. Nada é gravado.
+          </Help>
+          <PostRunStudyPCA key={detail.id} studyId={detail.id} />
+        </>
+      )
+    case 'pls':
+      return (
+        <>
+          <Help>
+            Regressão por mínimos quadrados parciais (PLS): um modelo por material que liga a curva inteira à massa (ou fração)
+            conhecida. Ao contrário da deconvolução, não supõe que a mistura seja a soma dos puros — mas precisa de misturas de
+            calibração e não vale fora delas. Usa as corridas com composição completa (puros e misturas). Nada é gravado.
+          </Help>
+          <PostRunStudyPLS key={detail.id} studyId={detail.id} />
         </>
       )
     case 'identificabilidade':

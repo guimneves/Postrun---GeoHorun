@@ -962,6 +962,10 @@ export const studyApi = {
     api.post<{ report: RecoveryReport; frozen: boolean }>(`/postrun/studies/${id}/report${method ? `?method=${method}` : ''}`),
   exportXlsx: (id: number, simples = false) => api.getBlob(`/postrun/studies/${id}/export.xlsx${simples ? '?simples=true' : ''}`),
   sensitivity: (id: number, tolerances: number[]) => api.post<StudySensitivity>(`/postrun/studies/${id}/sensitivity`, { tolerances }),
+  // PCA e PLS das curvas (17/11/2026)
+  pca: (id: number, body: ChemPrepIn & { n_comp?: number }) => api.post<StudyPCA>(`/postrun/studies/${id}/pca`, body),
+  pls: (id: number, body: ChemPrepIn & { target: PlsTarget; cv: PlsCv; n_lv?: number | null; max_lv?: number }) =>
+    api.post<StudyPLS>(`/postrun/studies/${id}/pls`, body),
   // F3: validação independente
   validationConfig: (id: number) => api.get<ValidationConfig>(`/postrun/studies/${id}/validation/config`),
   setValidationConfig: (id: number, body: { roles: Record<string, ValidationRole>; blind: boolean }) =>
@@ -1046,6 +1050,87 @@ export interface StudySensitivity {
   saved_tol: number[]
   natural_width: Record<string, ReportStat>
   n_mixtures: number
+  errors: string[]
+}
+
+/** PCA e PLS das curvas do estudo (17/11/2026) */
+export type ChemNormalize = 'none' | 'mass' | 'area' | 'max'
+export type PlsTarget = 'mass' | 'fraction'
+export type PlsCv = 'composicao' | 'corrida'
+
+export interface ChemPrepIn {
+  normalize?: ChemNormalize | null
+  derivative?: number
+  align?: boolean
+  t_min?: number | null
+  t_max?: number | null
+  step?: number
+}
+
+export interface ChemPrep {
+  normalize: ChemNormalize
+  derivative: number
+  align: boolean
+  t_min: number
+  t_max: number
+  step: number
+}
+
+export interface ChemRun {
+  token: string
+  filename: string
+  sample: string
+  group: string
+  kind: 'puro' | 'mistura' | 'desconhecida'
+  composition: Record<string, number> | null
+  mass_mg: number | null
+  day: string | null
+  tmax_c: number | null
+  shift_c: number
+}
+
+export interface StudyPCA {
+  prep: ChemPrep
+  grid: number[]
+  runs: ChemRun[]
+  x: number[][]
+  mean: number[]
+  explained: number[]
+  scores: number[][]
+  loadings: number[][]
+  t2: number[]
+  q: number[]
+  t2_limit: number | null
+  q_limit: number | null
+  materials: string[]
+  errors: string[]
+}
+
+export interface PlsMaterial {
+  material: string
+  n_lv: number
+  rmsec: number[]
+  rmsecv: number[]
+  r2_cal: number | null
+  q2: number | null
+  b: number[]
+  vip: number[]
+  preds: { token: string; y: number; y_cv: number; y_fit: number; recovery_cv_pct: number | null }[]
+  rmse_recovery_mix_pct: number | null
+  notes: string[]
+  error: string | null
+}
+
+export interface StudyPLS {
+  prep: ChemPrep
+  target: PlsTarget
+  unit: string
+  cv: PlsCv
+  n_groups: number
+  grid: number[]
+  runs: ChemRun[]
+  materials: PlsMaterial[]
+  excluded: string[]
   errors: string[]
 }
 
