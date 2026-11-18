@@ -44,6 +44,12 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           entra na lista: o arquivo tem o mesmo formato, só muda a extensão (<code>.B00</code>, <code>.M00</code>,{' '}
           <code>.O00</code>…); o multi-heating rates mostra o programa do forno com as várias rampas. O ícone de olho riscado, que
           aparece ao passar o mouse na linha, só esconde a análise da lista; não apaga nada.
+          <strong>Réplicas pelo nome</strong> (amostras de antes do Horun, quando cada réplica ganhou um nome próprio):
+          nomes iguais que terminam em um algarismo de 1 a 9 — <code>X1</code>, <code>X2</code>, <code>X3</code> ou{' '}
+          <code>X-1</code>, <code>X-2</code> — viram a amostra <code>X</code>, com o selo &quot;réplicas pelo nome&quot;. Só
+          quando cada um desses nomes tem uma corrida só (por método): <code>DOPOLAB 1</code> … <code>DOPOLAB 7</code>, com
+          três corridas cada, continuam amostras diferentes; números maiores (<code>HP280</code>, <code>TITAN_10</code>)
+          nunca juntam. Na PCA, &quot;colorir por amostra&quot; usa a mesma regra.
         </li>
         <li>
           As análises abertas aparecem no alto, em <strong>Workspace</strong> (amostra e réplica): toque numa para ela

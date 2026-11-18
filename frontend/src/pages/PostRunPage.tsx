@@ -1,3 +1,4 @@
+import { replicateGroups, sampleOf } from '../lib/replicates'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -567,6 +568,13 @@ export function PostRunPage() {
     if (cycleFilter && !cycles.some(([c]) => c === cycleFilter)) setCycleFilter('')
   }, [cycles, cycleFilter])
 
+  // réplicas pelo nome (18/11/2026): "X1", "X2", "X3" de antes do Horun = a amostra X
+  const repGroups = useMemo(
+    () => replicateGroups(analyses.map((a) => ({ sample: a.sample, method: methodOf(a) }))),
+    [analyses],
+  )
+  const sampleKey = (a: { sample: string }) => sampleOf(a.sample, repGroups)
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return analyses.filter((a) => {
@@ -577,11 +585,13 @@ export function PostRunPage() {
       if (!q) return true
       return (
         a.sample.toLowerCase().includes(q) ||
+        sampleKey(a).toLowerCase().includes(q) ||
         a.filename.toLowerCase().includes(q) ||
         a.job.toLowerCase().includes(q)
       )
     })
-  }, [analyses, search, dateFrom, dateTo, methodFilter, cycleFilter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analyses, search, dateFrom, dateTo, methodFilter, cycleFilter, repGroups])
 
   // Pedido do usuário: escolher o critério de ordenação (amostra, data,
   // análise, massa) — agrupado por amostra pra facilitar seleção múltipla
@@ -598,11 +608,12 @@ export function PostRunPage() {
           return b.quantity_mg - a.quantity_mg
         case 'sample':
         default:
-          return a.sample.localeCompare(b.sample) || a.filename.localeCompare(b.filename)
+          return sampleKey(a).localeCompare(sampleKey(b)) || a.filename.localeCompare(b.filename)
       }
     })
     return arr
-  }, [filtered, sortBy])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sortBy, repGroups])
 
   const visible = useMemo(
     () => (showHidden ? sortedFiltered : sortedFiltered.filter((a) => !hiddenTokens.has(a.token))),
@@ -612,20 +623,21 @@ export function PostRunPage() {
   const groups = useMemo(() => {
     const map = new Map<string, AnalysisSummary[]>()
     for (const a of visible) {
-      const key = a.sample || '(sem nome)'
+      const key = sampleKey(a)
       const list = map.get(key)
       if (list) list.push(a)
       else map.set(key, [a])
     }
     return Array.from(map.entries())
-  }, [visible])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, repGroups])
 
   // Carrega as miniaturas de FID das análises visíveis que ainda não
   // estão em cache, em blocos, pra lista ir preenchendo progressivamente.
   useEffect(() => {
     if (compact) return // lista simples não mostra as miniaturas
     const missing = visible
-      .filter((a) => !collapsed.has(a.sample || '(sem nome)'))
+      .filter((a) => !collapsed.has(sampleKey(a)))
       .map((a) => a.token)
       .filter((t) => !(t in sparklines))
     if (missing.length === 0) return
@@ -1585,6 +1597,16 @@ export function PostRunPage() {
                         onChange={() => toggleGroup(tokens)}
                       />
                       <span className="truncate text-[var(--color-text)]">{sample}</span>
+                      {items.some((i) => repGroups.has(i.sample.trim().toUpperCase())) && (
+                        <span
+                          className="shrink-0 rounded bg-[var(--color-primary)]/10 px-1 text-[10px] font-normal text-[var(--color-primary)]"
+                          title={`Réplicas reconhecidas pelo nome (amostras de antes do Horun): ${
+                            repGroups.get(items.find((i) => repGroups.has(i.sample.trim().toUpperCase()))!.sample.trim().toUpperCase())?.members.join(', ') ?? ''
+                          }`}
+                        >
+                          réplicas pelo nome
+                        </span>
+                      )}
                       <span className="ml-auto shrink-0 rounded-full bg-[var(--color-bg-elevated)] px-1.5 py-px text-[10px] font-medium text-[var(--color-text-muted)] ring-1 ring-[var(--color-border)]">
                         {openCount > 0 && !allOpen ? `${openCount}/` : ''}
                         {items.length}

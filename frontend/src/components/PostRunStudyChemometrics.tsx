@@ -11,6 +11,7 @@ import {
   type StudyClasses,
 } from '../api/postrun'
 import { materialColor } from '../lib/postrunColors'
+import { replicateGroups, sampleOf } from '../lib/replicates'
 import { PostRunLinesPlot, type LineSeries } from './PostRunLinesPlot'
 import { PostRunScatterPlot, type PlotPoint } from './PostRunScatterPlot'
 import { btnPrimaryClass, inputInlineClass as inputClass } from '../ui/classes'
@@ -40,7 +41,7 @@ function blend(hex: string, t: number): string {
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
 }
 
-type ColorBy = 'grupo' | 'dia' | 'classe' | 'ciclo' | 'metodo' | `fracao:${string}`
+type ColorBy = 'grupo' | 'dia' | 'classe' | 'ciclo' | 'metodo' | 'amostra' | `fracao:${string}`
 
 const CLASS_COLORS = ['#0072B2', '#D55E00', '#009E73', '#CC79A7', '#E69F00', '#56B4E9', '#000000', '#7b61c9', '#8c8a2a', '#e34948']
 const NO_CLASS = '#b5b5b5'
@@ -62,8 +63,14 @@ function useColoring(runs: ChemRun[], by: ColorBy, cls: StudyClasses = EMPTY_CLA
           .concat(none ? [{ label: `sem classe (${none})`, color: NO_CLASS }] : []),
       }
     }
-    if (by === 'dia' || by === 'ciclo' || by === 'metodo') {
-      const keyOf = (r: ChemRun) => (by === 'dia' ? r.day ?? 'sem data' : by === 'ciclo' ? r.cycle || 'sem ciclo' : r.method || 'sem método')
+    if (by === 'dia' || by === 'ciclo' || by === 'metodo' || by === 'amostra') {
+      // amostra: as réplicas juntas, inclusive as de antes do Horun ("X1", "X2", "X3")
+      const reps = by === 'amostra' ? replicateGroups(runs.map((r) => ({ sample: r.sample, method: r.method }))) : null
+      const keyOf = (r: ChemRun) =>
+        by === 'dia' ? r.day ?? 'sem data'
+        : by === 'ciclo' ? r.cycle || 'sem ciclo'
+        : by === 'amostra' ? sampleOf(r.sample, reps!)
+        : r.method || 'sem método'
       const keys = [...new Set(runs.map(keyOf))].sort()
       const col = (r: ChemRun) => DAY_COLORS[keys.indexOf(keyOf(r)) % DAY_COLORS.length]
       return { color: col, legend: keys.map((d, i) => ({ label: d, color: DAY_COLORS[i % DAY_COLORS.length] })) }
@@ -634,6 +641,7 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
               <option value="classe">classe (definida por você)</option>
               <option value="grupo">composição</option>
               <option value="dia">dia da análise</option>
+              <option value="amostra">amostra (réplicas juntas)</option>
               <option value="ciclo">ciclo</option>
               <option value="metodo">método</option>
               {data.materials.map((m) => (
