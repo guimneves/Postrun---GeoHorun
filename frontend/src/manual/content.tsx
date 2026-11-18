@@ -16,8 +16,9 @@ export interface ManualSection {
 
 export const MANUAL_INTRO = (
   <p>
-    Passo a passo do <strong>PostRun · GeoHorun</strong>: as curvas do Rock-Eval 7S lidas direto dos{' '}
-    <code>.B00</code> — pirograma, integração, deconvolução, calibração, curvas de calibração, relatório de
+    Passo a passo do <strong>PostRun · GeoHorun</strong>: as curvas do Rock-Eval 7S lidas direto dos arquivos de
+    cada análise — <code>.B00</code> (bulk rock), <code>.M00</code> (multi-heating rates), <code>.O00</code> (pure oil),{' '}
+    <code>.Q00</code> e os demais métodos — pirograma, integração, deconvolução, calibração, curvas de calibração, relatório de
     recuperação e estudos. Os parâmetros do GeoWorks (S1, S2, S3, Tmax, TOC, HI, OI…) ainda são calculados no
     software do fabricante; eles chegam ao GeoHorun numa próxima etapa.
   </p>
@@ -36,8 +37,11 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           (rede lenta, agente ocupado). <strong>Todos</strong> volta à lista de jobs.
         </li>
         <li>
-          Marque as análises que quer abrir (a caixa do nome da amostra marca todas as réplicas). Use a busca, a{' '}
-          <strong>Ordem</strong> e o filtro de <strong>Data</strong> para achar mais rápido. O ícone de olho riscado, que
+          Marque as análises que quer abrir (a caixa do nome da amostra marca todas as réplicas). Use a busca, o filtro de{' '}
+          <strong>Método</strong> (BULK ROCK, MULTI-HEATING RATES, PURE OIL… — a pasta do método no job), a{' '}
+          <strong>Ordem</strong> e o filtro de <strong>Data</strong> para achar mais rápido. Todo método do equipamento
+          entra na lista: o arquivo tem o mesmo formato, só muda a extensão (<code>.B00</code>, <code>.M00</code>,{' '}
+          <code>.O00</code>…); o multi-heating rates mostra o programa do forno com as várias rampas. O ícone de olho riscado, que
           aparece ao passar o mouse na linha, só esconde a análise da lista; não apaga nada.
         </li>
         <li>
@@ -216,8 +220,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             <strong>Salvar curva</strong>.
           </li>
           <li>
-            Massa zero no arquivo: clique na massa da corrida (lista de análises) e corrija. A composição também se corrige
-            clicando nela — veja "Composição das corridas" abaixo.
+            Massa zero no arquivo: clique na massa da corrida (lista de análises) e corrija. A composição só é usada na
+            deconvolução e se corrige lá — veja "Composição das corridas" abaixo.
           </li>
         </ol>
         <p>
@@ -282,9 +286,10 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       <>
         <p>
           A composição diz <strong>quais materiais procurar</strong> numa corrida (que referências entram na deconvolução) e{' '}
-          <strong>quanto se esperava</strong> de cada um (para a recuperação). Aparece como um selo ao lado da massa, na
-          lista de análises e na aba Deconvolução; passe o mouse para ver como foi lida. Ela vem do nome do arquivo — ou do
-          que você informar, que sempre vale mais.
+          <strong>quanto se esperava</strong> de cada um (para a recuperação). Só a <strong>deconvolução</strong> usa a
+          composição: quem só integra regiões nunca a vê. Ela aparece como um selo na aba Deconvolução (passo 1, lista das
+          corridas); passe o mouse para ver como foi lida. Vem do nome do arquivo — ou do que você informar, que sempre vale
+          mais.
         </p>
         <ul>
           <li>
@@ -294,7 +299,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           </li>
           <li>
             <strong>Sem a proporção</strong>: <code>PP_PS_1</code>, <code>PP+PS_1</code> ou a amostra <code>PP + PS</code> →
-            PP e PS, proporção não informada (selo laranja). Os picos são separados e a massa de cada um sai da curva; a
+            PP e PS, proporção não informada (selo laranja) — só quando todos os nomes são materiais conhecidos
+            (<code>PY+OXY</code>, o ciclo do Rock-Eval, não vira mistura). Os picos são separados e a massa de cada um sai da curva; a
             recuperação fica em branco, porque precisa da massa esperada. É o caso de uma amostra real a quantificar.
           </li>
           <li>

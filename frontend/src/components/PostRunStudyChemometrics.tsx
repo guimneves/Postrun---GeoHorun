@@ -29,7 +29,7 @@ const NORM_LABEL: Record<ChemNormalize, string> = {
 const MIX_COLORS = ['#E69F00', '#CC79A7', '#7b61c9', '#8c8a2a', '#e34948', '#0f9fb5', '#56B4E9', '#000000']
 const DAY_COLORS = ['#0072B2', '#D55E00', '#009E73', '#CC79A7', '#E69F00', '#56B4E9', '#7b61c9', '#8c8a2a', '#e34948', '#000000']
 const f = (v: number | null | undefined, d = 2) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d))
-const stem = (s: string) => s.replace(/\.B00$/i, '')
+const stem = (s: string) => s.replace(/.[A-Za-z]00$/i, '')
 
 function blend(hex: string, t: number): string {
   // do cinza-claro (fração 0) até a cor do material (fração 1)
@@ -280,7 +280,7 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
       {data && (
         <>
           <MatrixLine prep={data.prep} n={data.runs.length} />
-          {data.errors.length > 0 && <p className="text-[11px] text-[var(--color-warning,#b26a00)]">Ficaram de fora: {data.errors.join('; ')}</p>}
+          {data.errors.length > 0 && <p className="text-[11px] text-[var(--color-warning,#b26a00)]">Atenção: {data.errors.join('; ')}</p>}
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-[var(--color-text-muted)]">colorir por</span>
@@ -519,7 +519,7 @@ export function PostRunStudyPLS({ studyId }: { studyId: number }) {
           {(data.excluded.length > 0 || data.errors.length > 0) && (
             <p className="text-[11px] text-[var(--color-warning,#b26a00)]">
               {data.excluded.length > 0 && `Sem composição completa (fora da PLS): ${data.excluded.map(stem).join(', ')}. `}
-              {data.errors.length > 0 && `Não carregaram: ${data.errors.join('; ')}`}
+              {data.errors.length > 0 && `Atenção: ${data.errors.join('; ')}`}
             </p>
           )}
 

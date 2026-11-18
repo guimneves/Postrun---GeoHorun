@@ -103,7 +103,7 @@ export function PostRunIdentifiabilityPanel({ studyId, method }: { studyId: numb
                       style={bootToken === r.token && boot ? { background: 'var(--color-row-selected)' } : undefined}>
                       {i === 0 && (
                         <td className="py-1 pr-3 align-top" rowSpan={r.pairs.length}>
-                          <span className="block font-mono text-[11px]">{r.filename.replace(/\.B00$/i, '')}</span>
+                          <span className="block font-mono text-[11px]">{r.filename.replace(/.[A-Za-z]00$/i, '')}</span>
                           <span className="block text-[10px] text-[var(--color-text-dim)]">{r.composition_text}</span>
                         </td>
                       )}
@@ -140,7 +140,7 @@ export function PostRunIdentifiabilityPanel({ studyId, method }: { studyId: numb
         <div className="grid grid-cols-1 gap-3 rounded-xl bg-[var(--color-surface)] p-3 lg:grid-cols-2">
           <div className="flex flex-col gap-2 text-sm">
             <div className="text-xs text-[var(--color-text-muted)]">
-              Bootstrap dos resíduos (em blocos) — <span className="font-mono">{boot.filename.replace(/\.B00$/i, '')}</span>:{' '}
+              Bootstrap dos resíduos (em blocos) — <span className="font-mono">{boot.filename.replace(/.[A-Za-z]00$/i, '')}</span>:{' '}
               {boot.n_ok} reajustes{boot.n_failed ? `, ${boot.n_failed} falharam` : ''}
             </div>
             <table className="w-full text-left text-sm">

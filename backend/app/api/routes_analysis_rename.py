@@ -315,7 +315,8 @@ def move_batch(payload: MoveBatchIn, user: AdminUser, session: SessionDep):
                 error=f"Já está no job {job!r}.",
             ))
             continue
-        target = ar.AnalysisPath(job=job, method_dirs=ar.split_token(token).method_dirs, name=name).token
+        src = ar.split_token(token)
+        target = ar.AnalysisPath(job=job, method_dirs=src.method_dirs, name=name, suffix=src.suffix).token
         if target in targets:
             items.append(MoveBatchItemOut(
                 token=token, analysis_name=name, status="failed",
@@ -382,7 +383,7 @@ class ChangeSampleOut(BaseModel):
 
 
 def _backup_token(token: str) -> str:
-    return token[: -len(ar.B00_SUFFIX)] + ar.BACKUP_SUFFIX
+    return token + "~"  # .B00~, .M00~… (backup do GeoWorks)
 
 
 def _read_raw(session: SessionDep, token: str, *, optional: bool = False) -> bytes | None:
@@ -497,7 +498,7 @@ def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep)
             if isinstance(exc, (agent_bridge.AgentOfflineError, agent_bridge.AgentTooOldError)):
                 stopped = str(exc)
             continue
-        target = ar.AnalysisPath(job=current.job, method_dirs=current.method_dirs, name=new_name)
+        target = ar.AnalysisPath(job=current.job, method_dirs=current.method_dirs, name=new_name, suffix=current.suffix)
         item.new_analysis_name, item.new_token = new_name, target.token
         if old_sample == code and new_name == current.name:
             item.status, item.error = "skipped", "Já está com esta amostra."

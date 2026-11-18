@@ -43,19 +43,28 @@ class TimeBase:
 def estimate_seconds_per_point(curve: Curve | None, program: CycleProgram | None) -> float | None:
     if curve is None or program is None or program.rate <= 0 or len(curve.temp) < 2:
         return None
-    lo = program.init_temp + _RAMP_MARGIN_C
-    hi = program.final_temp - _RAMP_MARGIN_C
-    steps: list[float] = []
-    for (i0, t0), (i1, t1) in zip(zip(curve.idx, curve.temp), zip(curve.idx[1:], curve.temp[1:])):
-        if i1 <= i0 or not (lo <= t0 <= hi and lo <= t1 <= hi):
+    # cada rampa do programa (o multi-heating rates tem várias, 18/11/2026):
+    # segundos por ponto = (taxa / 60) / (°C por ponto) no trecho limpo dela
+    estimates: list[tuple[int, float]] = []
+    for rate, start, end in program.segments():
+        lo, hi = start + _RAMP_MARGIN_C, end - _RAMP_MARGIN_C
+        if rate <= 0 or hi <= lo:
             continue
-        dt = (t1 - t0) / (i1 - i0)
-        if dt > 0:
-            steps.append(dt)
-    if len(steps) < _MIN_RAMP_POINTS:
+        steps: list[float] = []
+        for (i0, t0), (i1, t1) in zip(zip(curve.idx, curve.temp), zip(curve.idx[1:], curve.temp[1:])):
+            if i1 <= i0 or not (lo <= t0 <= hi and lo <= t1 <= hi):
+                continue
+            dt = (t1 - t0) / (i1 - i0)
+            if dt > 0:
+                steps.append(dt)
+        if len(steps) >= _MIN_RAMP_POINTS:
+            per_point = median(steps)
+            if per_point > 0:
+                estimates.append((len(steps), (rate / 60.0) / per_point))
+    if not estimates:
         return None
-    per_point = median(steps)
-    return (program.rate / 60.0) / per_point if per_point > 0 else None
+    # a rampa com mais pontos manda (o ruído do termopar pesa menos nela)
+    return max(estimates)[1]
 
 
 def time_base(pyro: Curve | None, program: CycleProgram | None) -> TimeBase:

@@ -25,6 +25,8 @@ from app.modules.naming import forbidden_chars_message
 
 B00_SUFFIX = ".B00"
 BACKUP_SUFFIX = ".B00~"
+# qualquer método (18/11/2026): .B00, .M00 (multi-heating rates), .O00 (pure oil)…
+_SUFFIX = re.compile(r"\.[A-Za-z]00$")
 
 # Caracteres que o Windows não aceita em nome de arquivo/pasta.
 _INVALID_CHARS = set('<>:"/\\|?*')
@@ -42,18 +44,20 @@ class RenameError(ValueError):
 class AnalysisPath:
     job: str
     method_dirs: tuple[str, ...]  # ex. ("BULK ROCK",) ou ("Rochas_Araripe", "BULK ROCK")
-    name: str  # nome da análise = nome do arquivo sem ".B00"
+    name: str  # nome da análise = nome do arquivo sem a extensão
+    suffix: str = B00_SUFFIX  # extensão do método: ".B00", ".M00", ".O00"…
 
     @property
     def token(self) -> str:
-        return PurePosixPath(self.job, *self.method_dirs, self.name + B00_SUFFIX).as_posix()
+        return PurePosixPath(self.job, *self.method_dirs, self.name + self.suffix).as_posix()
 
 
 def split_token(token: str) -> AnalysisPath:
     parts = PurePosixPath(token).parts
-    if len(parts) < 2 or not parts[-1].endswith(B00_SUFFIX) or ".." in parts or token.startswith("/"):
+    m = _SUFFIX.search(parts[-1]) if parts else None
+    if len(parts) < 2 or m is None or ".." in parts or token.startswith("/"):
         raise RenameError("Análise inválida.")
-    return AnalysisPath(job=parts[0], method_dirs=tuple(parts[1:-1]), name=parts[-1][: -len(B00_SUFFIX)])
+    return AnalysisPath(job=parts[0], method_dirs=tuple(parts[1:-1]), name=parts[-1][: m.start()], suffix=m.group(0))
 
 
 def validate_component(value: str, label: str) -> str:
@@ -114,14 +118,14 @@ def plan(old: AnalysisPath, *, new_name: str | None, new_job: str | None) -> tup
         job=validate_component(new_job, "Job") if new_job is not None else old.job,
         method_dirs=old.method_dirs,
         name=new_name if new_name is not None else old.name,
+        suffix=old.suffix,
     )
     if target == old:
         raise RenameError("Nada mudou: o nome e o job são os mesmos.")
-    old_base = old.token[: -len(B00_SUFFIX)]
-    new_base = target.token[: -len(B00_SUFFIX)]
     moves = [
-        {"from": old_base + B00_SUFFIX, "to": new_base + B00_SUFFIX},
-        {"from": old_base + BACKUP_SUFFIX, "to": new_base + BACKUP_SUFFIX, "optional": True},
+        {"from": old.token, "to": target.token},
+        # backup do GeoWorks: o mesmo nome com "~" no fim (.B00~, .M00~…)
+        {"from": old.token + "~", "to": target.token + "~", "optional": True},
     ]
     return target, moves
 

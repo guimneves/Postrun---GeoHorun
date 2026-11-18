@@ -27,7 +27,7 @@ function loadColors(): Record<string, string> {
   }
 }
 
-const stem = (f: string) => f.replace(/\.B00$/i, '')
+const stem = (f: string) => f.replace(/.[A-Za-z]00$/i, '')
 
 /** Cor automática: a paleta dos picos e, depois dela, tons espaçados pelo
  * ângulo áureo (dezenas de réplicas sem repetir cor) — em hex, para o

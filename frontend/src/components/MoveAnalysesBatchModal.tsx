@@ -25,7 +25,7 @@ const STATUS_COLOR: Record<MoveBatchItem['status'], string> = {
 
 function nameOf(token: string): string {
   const file = token.split('/').pop() ?? token
-  return file.replace(/\.B00$/, '')
+  return file.replace(/.[A-Za-z]00$/i, '')
 }
 
 interface Props {

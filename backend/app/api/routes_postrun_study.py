@@ -459,7 +459,7 @@ def _safe_name(name: str) -> str:
 
 
 def _stem(filename: str) -> str:
-    return re.sub(r"\.B00$", "", filename, flags=re.IGNORECASE)
+    return re.sub(r"\.[A-Za-z]00$", "", filename)
 
 
 def build_export(session: SessionDep, s: PostrunStudy, plain: bool = False) -> bytes:

@@ -10,7 +10,9 @@ Como o nome é lido (`read_names`), na ordem:
 2. Nome do arquivo com proporção — `2026-10-01_PEAD_PP_PS_50-25-25_1.B00` →
    PEAD 50 %, PP 25 %, PS 25 % (os nomes antes da proporção são os
    componentes, quaisquer que sejam; data no início e réplica no fim saem).
-3. Nome do arquivo com "+" — `PP+PS_1` → PP e PS, proporção não informada.
+3. Nome do arquivo com "+" — `PP+PS_1` → PP e PS, proporção não informada
+   — só se TODOS forem materiais conhecidos (`PY+OXY` é o ciclo do
+   Rock-Eval, não uma mistura). Vale também para a amostra "PE + PS".
 4. Nome do arquivo sem proporção — só valem os pedaços que são **materiais
    conhecidos** (`BUILTIN_MATERIALS` + os que o laboratório já usou: ver
    `known`): `PEAD_040_2` → PEAD puro (040 = 4,0 mg nominais),
@@ -135,10 +137,17 @@ def _without_ratio(names: list[str], source: str, nominal: float | None = None, 
 def stem_of(filename: str) -> str:
     """`2026-10-01_PEAD_PP_PS_50-25-25_1.B00` → `PEAD_PP_PS_50-25-25`."""
     stem = filename.rsplit("/", 1)[-1]
-    if stem.upper().endswith(".B00"):
+    if re.search(r"\.[A-Za-z]00$", stem):  # .B00, .M00, .O00… (qualquer método)
         stem = stem[:-4]
     stem = _DATE_PREFIX.sub("", stem)
     return _REPLICATE_SUFFIX.sub("", stem)
+
+
+def _unknown(names: list[str], known) -> list[str]:
+    """Os nomes que não são materiais conhecidos. "A+B" sem proporção só vira
+    mistura se TODOS forem conhecidos (18/11/2026): "PY+OXY" é o ciclo do
+    Rock-Eval (pirólise + oxidação), não dois materiais."""
+    return [n.strip() for n in names if n.strip().upper() not in known]
 
 
 @dataclass
@@ -163,8 +172,11 @@ def read_names(filename: str, sample: str, known: frozenset[str] | set[str] | No
             note = f'lida do nome da amostra "{sample}"'
             return Reading(_normalized(names, ratios, "nome da amostra", note=note), note)
     if _SAMPLE_PLUS.match(sample):
-        note = f'lida do nome da amostra "{sample}" — sem a proporção'
-        return Reading(_without_ratio(sample.split("+"), "nome da amostra", note=note), note)
+        names = [n.strip() for n in sample.split("+") if n.strip()]
+        unknown = _unknown(names, known)
+        if not unknown:
+            note = f'lida do nome da amostra "{sample}" — sem a proporção'
+            return Reading(_without_ratio(names, "nome da amostra", note=note), note)
 
     stem = stem_of(filename)
     tokens = [t for t in stem.split("_") if t]
@@ -188,6 +200,10 @@ def read_names(filename: str, sample: str, known: frozenset[str] | set[str] | No
     plus = [t for t in tokens if "+" in t]
     if plus:
         names = [n for n in plus[0].split("+") if n.strip()]
+        unknown = _unknown(names, known)
+        if unknown:
+            return Reading(None, f'"{plus[0]}" no nome não é uma mistura de materiais conhecidos '
+                                 f"({', '.join(unknown)} não é material conhecido)")
         note = f'lida do nome do arquivo "{stem}"'
         comp = _without_ratio(names, "nome do arquivo", nominal, note)
         if not comp.complete:

@@ -481,9 +481,11 @@ def _list_analysis_tokens(
         _validate_job_name(job)
     if settings.agent_mode:
         # nome com caractere de glob não pode ir no padrão: lista tudo e filtra
-        pattern = f"{job}/**/*.B00" if job and not (_GLOB_SPECIAL & set(job)) else "**/*.B00"
+        glob = postrun_b00.ANALYSIS_GLOB
+        pattern = f"{job}/**/{glob}" if job and not (_GLOB_SPECIAL & set(job)) else f"**/{glob}"
         try:
             tokens = agent_bridge.list_files(session, agent_bridge.ROOT_JOBS, pattern, timeout=timeout)
+            tokens = [t for t in tokens if postrun_b00.is_analysis_file(t)]
         except agent_bridge.AgentTaskError as exc:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Agente Horun: {exc}") from exc
     else:
@@ -1362,9 +1364,10 @@ def _scan_worker(bind, job: str):
                 state.tokens = _list_analysis_tokens(session, job=job)
                 state.total = state.read = len(state.tokens)
                 return
-            pattern = f"{job}/**/*.B00" if not (_GLOB_SPECIAL & set(job)) else "**/*.B00"
+            glob = postrun_b00.ANALYSIS_GLOB
+            pattern = f"{job}/**/{glob}" if not (_GLOB_SPECIAL & set(job)) else f"**/{glob}"
             listed = agent_bridge.list_files(session, agent_bridge.ROOT_JOBS, pattern, timeout=_SCAN_LIST_TIMEOUT)
-            tokens = [t for t in listed if PurePosixPath(t).parts[:1] == (job,)]
+            tokens = [t for t in listed if PurePosixPath(t).parts[:1] == (job,) and postrun_b00.is_analysis_file(t)]
             analysis_rename.reconcile_uncertain(session, set(tokens), job=job)
             state.total = len(tokens)
             pending = []

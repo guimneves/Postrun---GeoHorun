@@ -25,7 +25,7 @@ const STATUS_COLOR: Record<ChangeSampleItem['status'], string> = {
 }
 
 function nameOf(token: string): string {
-  return (token.split('/').pop() ?? token).replace(/\.B00$/, '')
+  return (token.split('/').pop() ?? token).replace(/.[A-Za-z]00$/i, '')
 }
 
 interface Props {

@@ -55,14 +55,16 @@ def common_range(curves: list[tuple[np.ndarray, np.ndarray]]) -> tuple[float, fl
 
 
 def to_grid(curves: list[tuple[np.ndarray, np.ndarray]], t_min: float, t_max: float,
-            step: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
-    """Interpola cada curva (temperatura, sinal) na mesma grade → X (n × p)."""
+            step: float = 1.0, pad_zero: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """Interpola cada curva (temperatura, sinal) na mesma grade → X (n × p).
+    `pad_zero`: fora da janela da curva, zero (o sinal já está sem a linha de
+    base); senão, o valor da ponta."""
     if step <= 0:
         raise ChemometricsError("passo da grade deve ser positivo")
     if t_max - t_min < 10 * step:
         raise ChemometricsError(f"faixa de temperatura comum curta demais ({t_min:.0f}–{t_max:.0f} °C)")
     grid = np.arange(t_min, t_max + step * 1e-9, step)
-    X = np.vstack([np.interp(grid, t, y) for t, y in curves])
+    X = np.vstack([np.interp(grid, t, y, left=0.0, right=0.0) if pad_zero else np.interp(grid, t, y) for t, y in curves])
     return grid, X
 
 

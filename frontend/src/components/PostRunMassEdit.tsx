@@ -63,7 +63,7 @@ export function PostRunMassEdit({
 
   if (!editing) {
     const bad = !(massMg != null && massMg > 0)
-    const original = originalMassMg != null ? ` (gravada no .B00; original ${originalMassMg.toFixed(3)} mg)` : ''
+    const original = originalMassMg != null ? ` (gravada no arquivo; original ${originalMassMg.toFixed(3)} mg)` : ''
     return (
       <>
       <button
@@ -72,7 +72,7 @@ export function PostRunMassEdit({
         className={`font-medium underline decoration-dotted underline-offset-2 hover:text-[var(--color-primary)] ${className}`}
         style={{ color: bad ? 'var(--color-danger)' : undefined }}
         title={
-          (manual ? `massa corrigida na tela${original}` : bad ? 'massa zero no .B00' : 'massa do .B00') + ' — clique para editar'
+          (manual ? `massa corrigida na tela${original}` : bad ? 'massa zero no arquivo' : 'massa do arquivo') + ' — clique para editar'
         }
       >
         {massMg != null ? `${massMg.toFixed(3)} mg` : '— mg'}

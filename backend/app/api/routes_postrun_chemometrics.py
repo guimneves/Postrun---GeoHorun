@@ -136,9 +136,12 @@ def _span(session: SessionDep, s: PostrunStudy, token: str) -> tuple[int, int, s
     row = saved_row(session, token, s.channel, s.method) or saved_row(session, token, s.channel, other)
     if row is not None:
         return row.start_idx, row.end_idx, row.baseline_mode, row.fixed_baseline
-    reg = session.exec(
+    regs = session.exec(
         select(PostrunRegion).where(PostrunRegion.token == token, PostrunRegion.channel == s.channel)
-    ).first()
+    ).all()
+    # várias regiões na corrida (ex.: S1 e S2): a mais larga — a do pico
+    # principal; a primeira podia ser o S1, e a faixa comum sumia (18/11/2026)
+    reg = max(regs, key=lambda r: r.end_idx - r.start_idx) if regs else None
     if reg is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "sem região nem deconvolução salva no canal do estudo")
     return reg.start_idx, reg.end_idx, reg.baseline_mode, reg.fixed_baseline
@@ -183,11 +186,30 @@ def _matrix(session: SessionDep, s: PostrunStudy, p: PrepIn, default_norm: str, 
         detail = "são precisas pelo menos 3 corridas com região ou deconvolução salva"
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail + (f" ({'; '.join(errors[:3])})" if errors else ""))
     lo, hi = chem.common_range(curves)
-    t_min = max(lo, p.t_min) if p.t_min is not None else lo
-    t_max = min(hi, p.t_max) if p.t_max is not None else hi
+    if p.t_min is not None or p.t_max is not None:
+        # faixa escolhida na tela: vale como está; fora da janela de uma
+        # corrida o sinal (já sem a linha de base) conta como zero
+        t_min = p.t_min if p.t_min is not None else min(float(t[0]) for t, _ in curves)
+        t_max = p.t_max if p.t_max is not None else max(float(t[-1]) for t, _ in curves)
+        short = [r.filename for r, (t, _) in zip(runs, curves) if t[0] > t_min + 1 or t[-1] < t_max - 1]
+        if short:
+            errors.append(f"{len(short)} corrida(s) com janela menor que a faixa — completadas com zero fora dela: "
+                          + ", ".join(short[:5]) + ("…" if len(short) > 5 else ""))
+    else:
+        t_min, t_max = lo, hi
+        if hi - lo < 10 * p.step:
+            # explica quem limita a faixa e o que fazer
+            i_lo = max(range(len(curves)), key=lambda i: curves[i][0][0])
+            i_hi = min(range(len(curves)), key=lambda i: curves[i][0][-1])
+            w = lambda i: f"{runs[i].filename} ({curves[i][0][0]:.0f}–{curves[i][0][-1]:.0f} °C)"  # noqa: E731
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, (
+                f"as janelas das corridas quase não se sobrepõem: a PCA usa a faixa que TODAS cobrem, e aqui ela "
+                f"vai de {lo:.0f} a {hi:.0f} °C. Quem limita: {w(i_lo)} começa mais tarde e {w(i_hi)} termina mais "
+                "cedo. Confira a região/deconvolução dessas corridas, tire do estudo as que não são do mesmo tipo, "
+                "ou informe a faixa (°C) na tela — fora da janela de cada corrida o sinal conta como zero."))
     norm = p.normalize or default_norm
     try:
-        grid, X = chem.to_grid(curves, t_min, t_max, p.step)
+        grid, X = chem.to_grid(curves, t_min, t_max, p.step, pad_zero=p.t_min is not None or p.t_max is not None)
         masses = np.array([r.mass_mg or np.nan for r in runs], dtype=float)
         Xp, shifts = chem.preprocess(grid, X, masses, chem.Prep(normalize=norm, derivative=p.derivative, align=p.align))
     except chem.ChemometricsError as exc:

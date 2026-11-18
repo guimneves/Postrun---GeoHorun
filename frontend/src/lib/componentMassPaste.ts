@@ -119,7 +119,7 @@ export function massTemplateCsv(runs: (MassPasteRun & { masses?: Record<string, 
   const mats = [...new Set(runs.flatMap((r) => r.materials))]
   const lines = [['Amostra', ...mats].join(';')]
   for (const r of runs) {
-    lines.push([r.filename.replace(/\.B00$/i, ''), ...mats.map((m) => (r.masses?.[m] != null ? fmtMass(r.masses[m]) : ''))].join(';'))
+    lines.push([r.filename.replace(/.[A-Za-z]00$/i, ''), ...mats.map((m) => (r.masses?.[m] != null ? fmtMass(r.masses[m]) : ''))].join(';'))
   }
   return '﻿' + lines.join('\r\n') + '\r\n'
 }

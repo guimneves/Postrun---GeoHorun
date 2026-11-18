@@ -31,7 +31,6 @@ import { PostRunScanBar } from '../components/PostRunScanBar'
 import { PostRunCurvesTab, type WorkspaceGaussian, type WorkspacePoint } from '../components/PostRunCurvesTab'
 import { PostRunDeconvTab } from '../components/PostRunDeconvTab'
 import { PostRunMassEdit } from '../components/PostRunMassEdit'
-import { PostRunCompositionEdit } from '../components/PostRunCompositionEdit'
 import { PostRunDeconvPanel, type DeconvEntry, type DeconvWindow } from '../components/PostRunDeconvPanel'
 import { PostRunReportTab } from '../components/PostRunReportTab'
 import { PostRunStudiesTab } from '../components/PostRunStudiesTab'
@@ -129,7 +128,7 @@ function channelKey(curveName: 'pyro' | 'oxi', channel: string): string {
 /** Parte do nome da análise depois do código da amostra (réplica), para
  * distinguir no workspace duas análises da mesma amostra. */
 function replicaTag(filename: string): string {
-  const base = filename.replace(/\.B00$/i, '')
+  const base = filename.replace(/.[A-Za-z]00$/i, '')
   const m = base.match(/[_ -]([^_ -]+)$/)
   return m ? m[1] : base
 }
@@ -152,6 +151,16 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
  * regiões sobre a curva e calcular a área, em várias análises ao mesmo
  * tempo. Não calcula nenhum parâmetro geoquímico (S1/S2/S3/Tmax/TOC/...
  * continua sendo trabalho do GeoWorks). */
+/** Método do equipamento de uma análise: o CyclT do arquivo (BULK ROCK,
+ * MULTI-HEATING RATES, PURE OIL…); sem ele, a pasta do método no job, e por
+ * fim a extensão (.B00, .M00…). */
+function methodOf(a: { method_folder: string; token: string; filename: string }): string {
+  if (a.method_folder?.trim()) return a.method_folder.trim().toUpperCase()
+  const parts = a.token.split('/')
+  if (parts.length > 2) return parts[parts.length - 2].toUpperCase()
+  return (a.filename.match(/\.([A-Za-z])00$/)?.[0] ?? '').toUpperCase() || 'sem método'
+}
+
 export function PostRunPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
@@ -213,6 +222,9 @@ export function PostRunPage() {
   }
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  // filtro por método do equipamento (18/11/2026): BULK ROCK (.B00),
+  // MULTI-HEATING RATES (.M00), PURE OIL (.O00)… — '' = todos
+  const [methodFilter, setMethodFilter] = useState('')
 
   const [openTokens, setOpenTokens] = useState<string[]>([])
   const [details, setDetails] = useState<Record<string, AnalysisDetail>>({})
@@ -523,9 +535,19 @@ export function PostRunPage() {
   // jobs de padrões (STD) — a calibração lê as corridas deles também
   const stdJobs = useMemo(() => (jobsList ?? []).filter((j) => isStdJob(j.name)).map((j) => j.name), [jobsList])
 
+  const methods = useMemo(() => {
+    const count = new Map<string, number>()
+    for (const a of analyses) count.set(methodOf(a), (count.get(methodOf(a)) ?? 0) + 1)
+    return [...count.entries()].sort((x, y) => x[0].localeCompare(y[0]))
+  }, [analyses])
+  useEffect(() => {
+    if (methodFilter && !methods.some(([m]) => m === methodFilter)) setMethodFilter('')
+  }, [methods, methodFilter])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return analyses.filter((a) => {
+      if (methodFilter && methodOf(a) !== methodFilter) return false
       if (dateFrom && (!a.date || a.date.slice(0, 10) < dateFrom)) return false
       if (dateTo && (!a.date || a.date.slice(0, 10) > dateTo)) return false
       if (!q) return true
@@ -535,7 +557,7 @@ export function PostRunPage() {
         a.job.toLowerCase().includes(q)
       )
     })
-  }, [analyses, search, dateFrom, dateTo])
+  }, [analyses, search, dateFrom, dateTo, methodFilter])
 
   // Pedido do usuário: escolher o critério de ordenação (amostra, data,
   // análise, massa) — agrupado por amostra pra facilitar seleção múltipla
@@ -1378,6 +1400,20 @@ export function PostRunPage() {
             />
           </div>
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-2 text-xs text-[var(--color-text-muted)]">
+            <span>Método</span>
+            <select
+              className={inputClass}
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+              title="método do Rock-Eval (a pasta do método no job e a extensão do arquivo)"
+            >
+              <option value="">todos ({analyses.length})</option>
+              {methods.map(([m, n]) => (
+                <option key={m} value={m}>
+                  {m} ({n})
+                </option>
+              ))}
+            </select>
             <span>Ordem</span>
             <select
               className={inputClass}
@@ -1554,7 +1590,7 @@ export function PostRunPage() {
                             onChange={() => toggleOpen(a.token)}
                           />
                           <span className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[var(--color-text-muted)]" onClick={() => toggleOpen(a.token)}>
-                            {a.filename.replace(/\.B00$/i, '')}
+                            {a.filename.replace(/.[A-Za-z]00$/i, '')}
                           </span>
                           <PostRunMassEdit
                             token={a.token}
@@ -1592,7 +1628,7 @@ export function PostRunPage() {
                         </span>
                         <span className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleOpen(a.token)}>
                           <span className="block truncate font-mono text-[11.5px] font-medium text-[var(--color-text)]" title={a.filename}>
-                            {a.filename.replace(/\.B00$/i, '')}
+                            {a.filename.replace(/.[A-Za-z]00$/i, '')}
                           </span>
                           {runRecords[a.token]?.excluded && (
                             <span
@@ -1621,9 +1657,6 @@ export function PostRunPage() {
                               onSaved={mergeAnalyses}
                               className="font-medium tabular-nums text-[var(--color-text)]"
                             />
-                          </span>
-                          <span className="mt-0.5 block">
-                            <PostRunCompositionEdit token={a.token} summary={a} onSaved={mergeAnalyses} compact />
                           </span>
                         </span>
                         {/* ações da linha: aparecem por cima ao passar o mouse */}
@@ -2257,7 +2290,7 @@ export function PostRunPage() {
       {recordTokens && (
         <RunRecordModal
           tokens={recordTokens}
-          labelOf={(t) => (analysesByToken[t]?.filename ?? t).replace(/\.B00$/i, '')}
+          labelOf={(t) => (analysesByToken[t]?.filename ?? t).replace(/.[A-Za-z]00$/i, '')}
           onClose={() => setRecordTokens(null)}
           onChanged={(rs) => setRunRecords((prev) => ({ ...prev, ...Object.fromEntries(rs.map((r) => [r.token, r])) }))}
         />

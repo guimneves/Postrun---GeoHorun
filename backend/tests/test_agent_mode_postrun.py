@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import fnmatch
 import json
+import re
 import threading
 
 import pytest
@@ -62,8 +63,9 @@ class _FakeAgentFs:
     def list_files(self, session, root, glob, *, timeout=None):
         self.list_timeouts_seen.append(timeout)
         self.globs_seen.append(glob)
-        ext = glob.rsplit(".", 1)[-1]
-        return sorted(p for (r, p) in self.files if r == root and p.endswith(f".{ext}"))
+        # como o agente real: "?" = um caractere qualquer (".?00" = .B00, .M00…)
+        tail = fnmatch.translate("*." + glob.rsplit(".", 1)[-1])
+        return sorted(p for (r, p) in self.files if r == root and re.match(tail, p.rsplit("/", 1)[-1]))
 
 
 @pytest.fixture()
@@ -113,7 +115,7 @@ def test_postrun_jobs_then_one_job_via_agent_mode(admin_client, agent_mode, fake
 
     r = admin_client.get("/api/postrun/analyses", params={"job": JOB_STD})
     assert [a["token"] for a in r.json()] == [T1]
-    assert fake_fs.globs_seen[-1] == f"{JOB_STD}/**/*.B00"
+    assert fake_fs.globs_seen[-1] == f"{JOB_STD}/**/*.?00"
     assert fake_fs.read_calls == [(agent_bridge.ROOT_JOBS, T1)]  # só o do job escolhido
 
 
@@ -136,7 +138,7 @@ def test_postrun_job_with_glob_characters_lists_everything_and_filters(admin_cli
     fake_fs.files[(agent_bridge.ROOT_JOBS, T1)] = b00()
     r = admin_client.get("/api/postrun/analyses", params={"job": "Lote [A]"})
     assert [a["token"] for a in r.json()] == [token]
-    assert fake_fs.globs_seen[-1] == "**/*.B00"
+    assert fake_fs.globs_seen[-1] == "**/*.?00"
 
 
 def test_postrun_detail_404_when_not_in_agent_fs(admin_client, agent_mode, fake_fs):

@@ -8,6 +8,14 @@ sobre a curva. Este módulo **não calcula nenhum índice geoquímico**
 (S1/S2/S3/Tmax/TOC/PI/HI/OI/PC/RC continuam sendo trabalho do GeoWorks,
 pedido explícito do usuário).
 
+Outros métodos do equipamento (18/11/2026) gravam o MESMO formato, com outra
+extensão e numa pasta com o nome do método: `.M00` (MULTI-HEATING RATES),
+`.O00` (PURE OIL), `.Q00` (COAL)… — conferido em 61 `.M00`, 37 `.O00` e 1
+`.Q00` reais. Toda extensão "letra + 00" é uma análise (`is_analysis_file`);
+o `~` no fim (`.M00~`) é o backup do GeoWorks e fica de fora. O
+multi-heating rates tem o programa em vários trechos (`Rate1`/`Temp1`/`Iso1`,
+`Rate2`…) — ver `CycleProgram.steps`.
+
 Formato confirmado por inspeção de arquivos reais em
 `RE7raw-data/Mix PI/BULK ROCK/*.B00` e nos 7 replicados do padrão
 certificado `RE7raw-data/0_Padroes/BULK ROCK/*IFP160000*.B00`: texto tipo
@@ -89,17 +97,35 @@ class CycleProgram:
 
     init_temp: float  # InitT (°C)
     init_iso_min: float  # InitIso (min)
-    rate: float  # Rate (°C/min)
+    rate: float  # Rate (°C/min) — com vários trechos, o do trecho mais longo
     final_temp: float  # Temp (°C)
     final_iso_min: float  # Iso (min)
     purge_min: float  # Purge (min)
+    # vários trechos (multi-heating rates: Rate1/Temp1/Iso1, Rate2…): (taxa, até °C, patamar min)
+    steps: tuple[tuple[float, float, float], ...] = ()
+
+    def segments(self) -> list[tuple[float, float, float]]:
+        """Cada rampa: (taxa °C/min, de °C, até °C)."""
+        if not self.steps:
+            return [(self.rate, self.init_temp, self.final_temp)]
+        out, start = [], self.init_temp
+        for rate, temp, _iso in self.steps:
+            out.append((rate, start, temp))
+            start = temp
+        return out
 
     @property
     def key(self) -> str:
+        if len(self.steps) > 1:
+            parts = [f"{self.init_temp:g}/{self.init_iso_min:g}"] + [f"{r:g}>{t:g}>{i:g}" for r, t, i in self.steps]
+            return "/".join(parts)
         return "/".join(f"{v:g}" for v in (self.init_temp, self.init_iso_min, self.rate, self.final_temp, self.final_iso_min))
 
     @property
     def label(self) -> str:
+        if len(self.steps) > 1:
+            return f"{self.init_temp:g} °C ({self.init_iso_min:g} min)" + "".join(
+                f" → {r:g} °C/min → {t:g} °C ({i:g} min)" for r, t, i in self.steps)
         return (
             f"{self.init_temp:g} °C ({self.init_iso_min:g} min) → {self.rate:g} °C/min → "
             f"{self.final_temp:g} °C ({self.final_iso_min:g} min)"
@@ -111,7 +137,7 @@ def _cycle_program(lines: list[str] | None) -> CycleProgram | None:
         return None
     kv = _kv(lines)
     if not kv.get("Rate"):
-        return None
+        return _multi_step_program(kv)
     return CycleProgram(
         init_temp=_float(kv.get("InitT")),
         init_iso_min=_float(kv.get("InitIso")),
@@ -120,6 +146,50 @@ def _cycle_program(lines: list[str] | None) -> CycleProgram | None:
         final_iso_min=_float(kv.get("Iso")),
         purge_min=_float(kv.get("Purge")),
     )
+
+
+def _multi_step_program(kv: dict) -> CycleProgram | None:
+    """Programa em trechos (multi-heating rates): `Rate1`/`Temp1`/`Iso1`…;
+    trecho com taxa 0 = não usado."""
+    steps = []
+    for i in range(1, 10):
+        rate = _float(kv.get(f"Rate{i}"))
+        if rate > 0:
+            steps.append((rate, _float(kv.get(f"Temp{i}")), _float(kv.get(f"Iso{i}"))))
+    if not steps:
+        return None
+    init = _float(kv.get("InitT"))
+    spans, start = [], init
+    for rate, temp, _iso in steps:
+        spans.append((temp - start, rate))
+        start = temp
+    return CycleProgram(
+        init_temp=init, init_iso_min=_float(kv.get("InitIso")), rate=max(spans)[1],
+        final_temp=steps[-1][1], final_iso_min=steps[-1][2], purge_min=_float(kv.get("Purge")),
+        steps=tuple(steps),
+    )
+
+
+_ANALYSIS_SUFFIX = re.compile(r"\.[A-Za-z]00$")
+# padrão de busca (pathlib e Agente Horun): "?" = a letra do método; o "~"
+# do backup no fim faz o nome não casar
+ANALYSIS_GLOB = "*.?00"
+
+
+def is_analysis_file(name: str) -> bool:
+    """`.B00` (bulk rock), `.M00` (multi-heating rates), `.O00` (pure oil),
+    `.Q00`… — qualquer método do Rock-Eval 7S; nunca o backup `.B00~`."""
+    return bool(_ANALYSIS_SUFFIX.search(name))
+
+
+def analysis_stem(name: str) -> str:
+    """Nome sem a extensão do método: `2026-06-11_X_1.M00` → `2026-06-11_X_1`."""
+    return _ANALYSIS_SUFFIX.sub("", name)
+
+
+def analysis_suffix(name: str) -> str:
+    m = _ANALYSIS_SUFFIX.search(name)
+    return m.group(0) if m else ""
 
 
 @dataclass
@@ -346,11 +416,11 @@ def read_full(path: str | Path) -> B00Analysis:
 
 
 def list_analyses(jobs_dir: Path) -> list[Path]:
-    """Todos os `.B00` em qualquer subpasta de `jobs_dir` (job -> método ->
+    """Todas as análises (`.B00`, `.M00`, `.O00`… — `is_analysis_file`) em qualquer subpasta de `jobs_dir` (job -> método ->
     arquivos), recursivo. `*.B00~` (backup/autosave do GeoWorks — visto nos
     dados reais, às vezes sem o `.B00` final correspondente, ou seja a
     corrida não chegou a ser salva) fica automaticamente de fora: o padrão
     `*.B00` não casa com um nome terminado em `~`."""
     if not jobs_dir.exists():
         return []
-    return sorted(p for p in jobs_dir.rglob("*.B00") if p.is_file())
+    return sorted(p for p in jobs_dir.rglob(ANALYSIS_GLOB) if p.is_file() and is_analysis_file(p.name))

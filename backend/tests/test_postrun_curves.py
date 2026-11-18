@@ -330,3 +330,11 @@ def test_mass_edit_updates_cached_header(user_client, jobs, db_engine):
     _set_mass(user_client, T1, 4.321)
     with Session(db_engine) as s:
         assert "Quant=4.321" in s.get(PostrunB00Cache, T1).content
+
+
+def test_plus_needs_known_materials():
+    # "PY+OXY" é o ciclo do Rock-Eval, não uma mistura (18/11/2026)
+    r = postrun_composition.read_names("2026-06-09-Fumo Red Patterson_PY+OXY_1.B00", "")
+    assert r.composition is None and "PY" in r.note
+    assert postrun_composition.from_names("x_1.B00", "PY + OXY") is None
+    assert postrun_composition.from_names("2026-07-17_PBX+PP_1.B00", "", known={"PBX", "PP"}).names == ["PBX", "PP"]

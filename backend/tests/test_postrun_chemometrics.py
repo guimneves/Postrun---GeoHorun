@@ -151,3 +151,20 @@ def test_pls_route_predicts_masses(user_client, jobs):
 def test_chemometrics_need_runs(user_client):
     s = user_client.post("/api/postrun/studies", json={"name": "vazio", "method": "molde"}).json()
     assert user_client.post(f"/api/postrun/studies/{s['id']}/pca", json={}).status_code == 400
+
+
+def test_grid_common_range_and_zero_padding():
+    t1, t2 = np.arange(300, 501, 1.0), np.arange(350, 651, 1.0)
+    curves = [(t1, np.ones_like(t1)), (t2, 2 * np.ones_like(t2))]
+    assert chem.common_range(curves) == (350.0, 500.0)
+    # faixa escolhida maior que a janela de uma corrida: fora dela, zero
+    grid, X = chem.to_grid(curves, 300, 650, 1.0, pad_zero=True)
+    assert X[0][grid > 500].max() == 0 and X[1][grid < 350].max() == 0
+    assert X[0][grid == 400][0] == 1 and X[1][grid == 600][0] == 2
+
+
+def test_pca_explicit_range_works_beyond_the_common_one(user_client, jobs):
+    sid = _study(user_client, jobs)
+    body = user_client.post(f"/api/postrun/studies/{sid}/pca", json={"t_min": 250, "t_max": 700}).json()
+    assert body["prep"]["t_min"] == 250 and body["prep"]["t_max"] == 700
+    assert any("completadas com zero" in e for e in body["errors"])
