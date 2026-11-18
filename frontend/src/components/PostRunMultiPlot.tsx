@@ -21,7 +21,7 @@ const MAX_POINTS = 1200
 const selectClass =
   'rounded-lg border px-2 py-1 text-xs border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]'
 
-const stem = (f: string) => f.replace(/.[A-Za-z]00$/i, '')
+const stem = (f: string) => f.replace(/\.[A-Za-z]00$/i, '')
 
 export function PostRunMultiPlot({
   activeToken,

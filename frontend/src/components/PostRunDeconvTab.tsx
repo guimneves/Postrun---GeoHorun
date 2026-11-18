@@ -23,7 +23,7 @@ import { inputInlineClass as inputClass, btnPrimaryClass, cardClass } from '../u
 // molde ficam salvos lado a lado: trocar o método não apaga o outro.
 
 function short(name: string): string {
-  return name.replace(/.[A-Za-z]00$/i, '')
+  return name.replace(/\.[A-Za-z]00$/i, '')
 }
 
 function Step({ n, title, done, children }: { n: number; title: string; done: boolean | null; children: React.ReactNode }) {

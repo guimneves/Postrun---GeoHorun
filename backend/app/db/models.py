@@ -258,6 +258,10 @@ class PostrunStudy(SQLModel, table=True):
     # a revelação (com as massas encontradas naquele momento). JSON; coluna nova
     # (não existe no RE7S): app/db/session.py garante nos bancos antigos.
     validation: str = ""
+    # classes definidas pela pessoa para colorir a PCA (18/11/2026): JSON
+    # {"classes": [{"id", "name", "color"}], "assign": {token: id}} — rótulos
+    # descritivos, não mudam nenhum resultado
+    classes: str = ""
 
     created_by_id: int = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=utcnow)

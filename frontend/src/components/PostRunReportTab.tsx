@@ -192,7 +192,7 @@ export function PostRunReportTab({
         if (!raw) continue
         const v = parseMassNumber(raw)
         if (v === null || v <= 0) {
-          setMessage(`${run.filename.replace(/.[A-Za-z]00$/i, '')}: "${raw}" não é uma massa válida para ${mat}`)
+          setMessage(`${run.filename.replace(/\.[A-Za-z]00$/i, '')}: "${raw}" não é uma massa válida para ${mat}`)
           return
         }
         parts.push(`${mat} ${v}`)
@@ -381,7 +381,7 @@ export function PostRunReportTab({
                           className={`${inputClass} h-32 font-mono text-xs`}
                           value={pasteText}
                           onChange={(e) => setPasteText(e.target.value)}
-                          placeholder={'Amostra\tPEAD\tPS\n' + mixRuns.slice(0, 2).map((r) => `${r.filename.replace(/.[A-Za-z]00$/i, '')}\t1,012\t0,998`).join('\n')}
+                          placeholder={'Amostra\tPEAD\tPS\n' + mixRuns.slice(0, 2).map((r) => `${r.filename.replace(/\.[A-Za-z]00$/i, '')}\t1,012\t0,998`).join('\n')}
                           aria-label="Massas reais coladas do Excel"
                         />
                         <span className="text-[11px] text-[var(--color-text-muted)]">
@@ -433,7 +433,7 @@ export function PostRunReportTab({
                           <tr key={`${r.token}|${m.material}`} className={i === 0 ? 'border-t border-[var(--color-border)]' : ''}>
                             {i === 0 && (
                               <>
-                                <td className="py-1 pr-3 align-top font-mono" rowSpan={r.materials.length}>{r.filename.replace(/.[A-Za-z]00$/i, '')}</td>
+                                <td className="py-1 pr-3 align-top font-mono" rowSpan={r.materials.length}>{r.filename.replace(/\.[A-Za-z]00$/i, '')}</td>
                                 <td className="py-1 pr-3 align-top tabular-nums" rowSpan={r.materials.length}>
                                   {r.mass_mg.toFixed(3)}{r.mass_source === 'manual' ? ' ✎' : ''}
                                 </td>

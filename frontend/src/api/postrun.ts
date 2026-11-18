@@ -963,6 +963,8 @@ export const studyApi = {
   exportXlsx: (id: number, simples = false) => api.getBlob(`/postrun/studies/${id}/export.xlsx${simples ? '?simples=true' : ''}`),
   sensitivity: (id: number, tolerances: number[]) => api.post<StudySensitivity>(`/postrun/studies/${id}/sensitivity`, { tolerances }),
   // PCA e PLS das curvas (17/11/2026)
+  classes: (id: number) => api.get<StudyClasses>(`/postrun/studies/${id}/classes`),
+  setClasses: (id: number, body: StudyClasses) => api.put<StudyClasses>(`/postrun/studies/${id}/classes`, body),
   pca: (id: number, body: ChemPrepIn & { n_comp?: number }) => api.post<StudyPCA>(`/postrun/studies/${id}/pca`, body),
   pls: (id: number, body: ChemPrepIn & { target: PlsTarget; cv: PlsCv; n_lv?: number | null; max_lv?: number }) =>
     api.post<StudyPLS>(`/postrun/studies/${id}/pls`, body),
@@ -1053,6 +1055,18 @@ export interface StudySensitivity {
   errors: string[]
 }
 
+/** Classes da PCA (18/11/2026): rótulos que a pessoa dá às corridas do estudo */
+export interface StudyClass {
+  id: string
+  name: string
+  color: string
+}
+
+export interface StudyClasses {
+  classes: StudyClass[]
+  assign: Record<string, string>
+}
+
 /** PCA e PLS das curvas do estudo (17/11/2026) */
 export type ChemNormalize = 'none' | 'mass' | 'area' | 'max'
 export type PlsTarget = 'mass' | 'fraction'
@@ -1085,6 +1099,8 @@ export interface ChemRun {
   composition: Record<string, number> | null
   mass_mg: number | null
   day: string | null
+  cycle: string
+  method: string
   tmax_c: number | null
   shift_c: number
 }

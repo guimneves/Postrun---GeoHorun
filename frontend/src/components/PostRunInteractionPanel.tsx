@@ -63,7 +63,7 @@ export function PostRunInteractionPanel({ studyId, method }: { studyId: number; 
               <ul className="mt-1 list-disc pl-5">
                 {data.alerts.map((a, i) => (
                   <li key={i}>
-                    <span className="font-mono">{a.filename.replace(/.[A-Za-z]00$/i, '')}</span> · {a.material}: ΔTmax{' '}
+                    <span className="font-mono">{a.filename.replace(/\.[A-Za-z]00$/i, '')}</span> · {a.material}: ΔTmax{' '}
                     {signed(a.delta_mu_c, '°C')} (± {a.tol_c} °C), Δlargura {signed(a.delta_width_pct, '%')} (± {a.tol_width_pct} %)
                   </li>
                 ))}
@@ -87,7 +87,7 @@ export function PostRunInteractionPanel({ studyId, method }: { studyId: number; 
                       className="cursor-pointer border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]"
                       style={active === r.token ? { background: 'var(--color-row-selected)' } : undefined}>
                       <td className="py-1 pr-3">
-                        <span className="block font-mono text-[11px]">{r.filename.replace(/.[A-Za-z]00$/i, '')}</span>
+                        <span className="block font-mono text-[11px]">{r.filename.replace(/\.[A-Za-z]00$/i, '')}</span>
                         <span className="block text-[10px] text-[var(--color-text-dim)]">{r.composition_text}</span>
                         {r.error && <span className="block text-[10px] text-[var(--color-danger)]">{r.error}</span>}
                       </td>

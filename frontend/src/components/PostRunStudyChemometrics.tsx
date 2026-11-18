@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { ApiError } from '../api/client'
 import {
   studyApi,
@@ -8,6 +8,7 @@ import {
   type ChemRun,
   type PlsCv,
   type PlsTarget,
+  type StudyClasses,
 } from '../api/postrun'
 import { materialColor } from '../lib/postrunColors'
 import { PostRunLinesPlot, type LineSeries } from './PostRunLinesPlot'
@@ -29,7 +30,7 @@ const NORM_LABEL: Record<ChemNormalize, string> = {
 const MIX_COLORS = ['#E69F00', '#CC79A7', '#7b61c9', '#8c8a2a', '#e34948', '#0f9fb5', '#56B4E9', '#000000']
 const DAY_COLORS = ['#0072B2', '#D55E00', '#009E73', '#CC79A7', '#E69F00', '#56B4E9', '#7b61c9', '#8c8a2a', '#e34948', '#000000']
 const f = (v: number | null | undefined, d = 2) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d))
-const stem = (s: string) => s.replace(/.[A-Za-z]00$/i, '')
+const stem = (s: string) => s.replace(/\.[A-Za-z]00$/i, '')
 
 function blend(hex: string, t: number): string {
   // do cinza-claro (fração 0) até a cor do material (fração 1)
@@ -39,15 +40,33 @@ function blend(hex: string, t: number): string {
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
 }
 
-type ColorBy = 'grupo' | 'dia' | `fracao:${string}`
+type ColorBy = 'grupo' | 'dia' | 'classe' | 'ciclo' | 'metodo' | `fracao:${string}`
+
+const CLASS_COLORS = ['#0072B2', '#D55E00', '#009E73', '#CC79A7', '#E69F00', '#56B4E9', '#000000', '#7b61c9', '#8c8a2a', '#e34948']
+const NO_CLASS = '#b5b5b5'
+const EMPTY_CLASSES: StudyClasses = { classes: [], assign: {} }
+const classColor = (cls: StudyClasses, i: number) => cls.classes[i].color || CLASS_COLORS[i % CLASS_COLORS.length]
 
 /** cor de cada corrida + a legenda, pelo critério escolhido */
-function useColoring(runs: ChemRun[], by: ColorBy) {
+function useColoring(runs: ChemRun[], by: ColorBy, cls: StudyClasses = EMPTY_CLASSES) {
   return useMemo(() => {
-    if (by === 'dia') {
-      const days = [...new Set(runs.map((r) => r.day ?? 'sem data'))].sort()
-      const col = (r: ChemRun) => DAY_COLORS[days.indexOf(r.day ?? 'sem data') % DAY_COLORS.length]
-      return { color: col, legend: days.map((d, i) => ({ label: d, color: DAY_COLORS[i % DAY_COLORS.length] })) }
+    if (by === 'classe') {
+      const byId = new Map(cls.classes.map((c, i) => [c.id, { ...c, color: classColor(cls, i) }]))
+      const col = (r: ChemRun) => byId.get(cls.assign[r.token] ?? '')?.color ?? NO_CLASS
+      const count = (id: string) => runs.filter((r) => cls.assign[r.token] === id).length
+      const none = runs.filter((r) => !byId.has(cls.assign[r.token] ?? '')).length
+      return {
+        color: col,
+        legend: [...byId.values()]
+          .map((c) => ({ label: `${c.name} (${count(c.id)})`, color: c.color }))
+          .concat(none ? [{ label: `sem classe (${none})`, color: NO_CLASS }] : []),
+      }
+    }
+    if (by === 'dia' || by === 'ciclo' || by === 'metodo') {
+      const keyOf = (r: ChemRun) => (by === 'dia' ? r.day ?? 'sem data' : by === 'ciclo' ? r.cycle || 'sem ciclo' : r.method || 'sem método')
+      const keys = [...new Set(runs.map(keyOf))].sort()
+      const col = (r: ChemRun) => DAY_COLORS[keys.indexOf(keyOf(r)) % DAY_COLORS.length]
+      return { color: col, legend: keys.map((d, i) => ({ label: d, color: DAY_COLORS[i % DAY_COLORS.length] })) }
     }
     if (by.startsWith('fracao:')) {
       const mat = by.slice(7)
@@ -66,7 +85,293 @@ function useColoring(runs: ChemRun[], by: ColorBy) {
       return MIX_COLORS[mixGroups.indexOf(g) % MIX_COLORS.length]
     }
     return { color: (r: ChemRun) => groupColor(r.group), legend: groups.map((g) => ({ label: g, color: groupColor(g) })) }
-  }, [runs, by])
+  }, [runs, by, cls])
+}
+
+// ------------------------------------------------------------------ classes
+
+/** Classes do estudo (18/11/2026): carrega e guarda a cada mudança. */
+function useStudyClasses(studyId: number) {
+  const [cls, setCls] = useState<StudyClasses>(EMPTY_CLASSES)
+  const [state, setState] = useState<'' | 'salvando' | 'salvo' | 'erro'>('')
+  const [error, setError] = useState<string | null>(null)
+  const seq = useRef(0)
+  useEffect(() => {
+    let alive = true
+    studyApi
+      .classes(studyId)
+      .then((c) => alive && setCls(c))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [studyId])
+  function update(next: StudyClasses) {
+    setCls(next)
+    const mine = ++seq.current
+    setState('salvando')
+    studyApi
+      .setClasses(studyId, next)
+      .then(() => {
+        if (mine === seq.current) {
+          setState('salvo')
+          setError(null)
+        }
+      })
+      .catch((err) => {
+        if (mine === seq.current) {
+          setState('erro')
+          setError(err instanceof ApiError ? err.message : 'não foi possível salvar as classes')
+        }
+      })
+  }
+  return { cls, update, state, error }
+}
+
+const newClassId = () => `c${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`
+
+function nextClass(cls: StudyClasses) {
+  const used = new Set(cls.classes.map((c) => c.name))
+  let n = cls.classes.length + 1
+  while (used.has(String(n))) n += 1
+  const color = CLASS_COLORS.find((c) => !cls.classes.some((x) => x.color === c)) ?? CLASS_COLORS[cls.classes.length % CLASS_COLORS.length]
+  return { id: newClassId(), name: String(n), color }
+}
+
+/** Painel das classes + a seleção de corridas (18/11/2026: "bem interativa —
+ * selecionar várias amostras de uma vez com Ctrl+clique ou Shift+clique para
+ * aplicar uma classe"). A seleção é a mesma do gráfico de scores e da lista. */
+function ClassesPanel({
+  cls,
+  update,
+  selected,
+  setSelected,
+  runs,
+  saveState,
+  saveError,
+}: {
+  cls: StudyClasses
+  update: (c: StudyClasses) => void
+  selected: string[]
+  setSelected: Dispatch<SetStateAction<string[]>>
+  runs: ChemRun[]
+  saveState: string
+  saveError: string | null
+}) {
+  const [showList, setShowList] = useState(false)
+  const anchor = useRef<number | null>(null)
+  const sel = new Set(selected)
+  const count = (id: string) => runs.filter((r) => cls.assign[r.token] === id).length
+
+  function apply(id: string | null) {
+    if (!selected.length) return
+    const assign = { ...cls.assign }
+    for (const t of selected) {
+      if (id) assign[t] = id
+      else delete assign[t]
+    }
+    update({ ...cls, assign })
+  }
+  function addClass(withSelection: boolean) {
+    const c = nextClass(cls)
+    const assign = { ...cls.assign }
+    if (withSelection) for (const t of selected) assign[t] = c.id
+    update({ classes: [...cls.classes, c], assign })
+  }
+  function remove(id: string) {
+    const assign = Object.fromEntries(Object.entries(cls.assign).filter(([, c]) => c !== id))
+    update({ classes: cls.classes.filter((c) => c.id !== id), assign })
+  }
+  function patch(id: string, p: Partial<{ name: string; color: string }>) {
+    update({ ...cls, classes: cls.classes.map((c) => (c.id === id ? { ...c, ...p } : c)) })
+  }
+  // lista: clique = só esta; Ctrl/⌘ = liga/desliga; Shift = intervalo desde a última clicada
+  function rowClick(i: number, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) {
+    const t = runs[i].token
+    const ctrl = e.ctrlKey || e.metaKey
+    if (e.shiftKey && anchor.current !== null) {
+      const [a, b] = [Math.min(anchor.current, i), Math.max(anchor.current, i)]
+      const range = runs.slice(a, b + 1).map((r) => r.token)
+      setSelected((cur) => (ctrl ? [...new Set([...cur, ...range])] : range))
+      return
+    }
+    anchor.current = i
+    setSelected((cur) => {
+      const has = cur.includes(t)
+      if (ctrl) return has ? cur.filter((x) => x !== t) : [...cur, t]
+      return cur.length === 1 && has ? [] : [t]
+    })
+  }
+
+  // atalhos: 1–9 põem a seleção na classe N, 0 tira da classe, Esc limpa
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === 'Escape' && selected.length) {
+        setSelected([])
+        return
+      }
+      if (!selected.length || !/^[0-9]$/.test(e.key)) return
+      const n = Number(e.key)
+      if (n === 0) apply(null)
+      else if (cls.classes[n - 1]) apply(cls.classes[n - 1].id)
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  return (
+    <div className="rounded-xl border p-3 text-xs border-[var(--color-border)]">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-semibold">Classes deste estudo</span>
+        <span className="text-[11px] text-[var(--color-text-muted)]">
+          {saveState === 'salvando' ? 'salvando…' : saveState === 'salvo' ? 'salvo no estudo' : ''}
+          {saveError && <span className="text-[var(--color-danger,#c0392b)]">{saveError}</span>}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {cls.classes.map((c, i) => (
+          <span key={c.id} className="flex items-center gap-1 rounded-full border py-0.5 pl-1 pr-1.5 border-[var(--color-border)]">
+            <input
+              type="color"
+              value={classColor(cls, i)}
+              onChange={(e) => patch(c.id, { color: e.target.value })}
+              className="h-5 w-5 cursor-pointer rounded-full border-0 bg-transparent p-0"
+              title="cor da classe"
+            />
+            <span className="text-[10px] tabular-nums text-[var(--color-text-muted)]" title={`tecla ${i + 1}`}>
+              {i < 9 ? `${i + 1}·` : ''}
+            </span>
+            <input
+              className="w-20 bg-transparent text-xs font-medium outline-none"
+              value={c.name}
+              onChange={(e) => patch(c.id, { name: e.target.value })}
+              aria-label="nome da classe"
+            />
+            <button
+              type="button"
+              className="rounded-full px-1 tabular-nums text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]"
+              title="selecionar as corridas desta classe"
+              onClick={() => setSelected(runs.filter((r) => cls.assign[r.token] === c.id).map((r) => r.token))}
+            >
+              {count(c.id)}
+            </button>
+            <button
+              type="button"
+              className="px-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-danger,#c0392b)]"
+              onClick={() => remove(c.id)}
+              aria-label={`apagar a classe ${c.name}`}
+              title="apagar a classe (as corridas dela ficam sem classe)"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        <button type="button" className="rounded-full border border-dashed px-2.5 py-1 hover:bg-[var(--color-surface)] border-[var(--color-border)]" onClick={() => addClass(false)}>
+          + classe
+        </button>
+      </div>
+
+      {/* barra de ação da seleção */}
+      <div
+        className="mt-2 flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5"
+        style={{ background: selected.length ? 'var(--color-surface)' : 'transparent' }}
+      >
+        {selected.length === 0 ? (
+          <span className="text-[11px] text-[var(--color-text-muted)]">
+            Selecione corridas no gráfico de scores ou na lista: <strong>clique</strong> = uma; <strong>Ctrl+clique</strong> = soma
+            ou tira; <strong>Shift+clique</strong> = soma (na lista, um intervalo); <strong>arraste um retângulo</strong> no
+            gráfico para pegar várias (com Shift ou Ctrl, soma à seleção).
+          </span>
+        ) : (
+          <>
+            <span className="font-semibold">
+              {selected.length} selecionada{selected.length > 1 ? 's' : ''} →
+            </span>
+            {cls.classes.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => apply(c.id)}
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium hover:brightness-95 border-[var(--color-border)]"
+                style={{ background: `${classColor(cls, i)}22` }}
+                title={i < 9 ? `tecla ${i + 1}` : undefined}
+              >
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: classColor(cls, i) }} />
+                {c.name}
+              </button>
+            ))}
+            <button type="button" className="rounded-full border border-dashed px-2 py-0.5 border-[var(--color-border)]" onClick={() => addClass(true)}>
+              + nova classe com elas
+            </button>
+            <button type="button" className="rounded-full px-2 py-0.5 text-[var(--color-text-muted)] hover:underline" onClick={() => apply(null)} title="tecla 0">
+              tirar da classe
+            </button>
+            <button type="button" className="ml-auto text-[var(--color-text-muted)] hover:underline" onClick={() => setSelected([])} title="Esc">
+              limpar seleção
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] text-[var(--color-text-muted)]">
+          Atalhos com corridas selecionadas: <strong>1–9</strong> põem na classe, <strong>0</strong> tira, <strong>Esc</strong> limpa. As
+          classes ficam guardadas no estudo e não mudam a PCA — só a cor dos pontos.
+        </span>
+        <button type="button" className="text-[var(--color-primary)] hover:underline" onClick={() => setShowList((v) => !v)}>
+          {showList ? 'esconder a lista de corridas' : 'mostrar a lista de corridas'}
+        </button>
+      </div>
+
+      {showList && (
+        <div className="mt-2 max-h-64 select-none overflow-auto rounded-lg border border-[var(--color-border)]">
+          <table className="w-full text-left">
+            <tbody>
+              {runs.map((r, i) => {
+                const ci = cls.classes.findIndex((c) => c.id === cls.assign[r.token])
+                const on = sel.has(r.token)
+                return (
+                  <tr
+                    key={r.token}
+                    onClick={(e) => rowClick(i, e)}
+                    className="cursor-pointer border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]"
+                    style={on ? { background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)' } : undefined}
+                  >
+                    <td className="w-6 py-0.5 pl-2">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => setSelected((cur) => (cur.includes(r.token) ? cur.filter((x) => x !== r.token) : [...cur, r.token]))}
+                        aria-label={`selecionar ${stem(r.filename)}`}
+                      />
+                    </td>
+                    <td className="py-0.5 pr-2 font-mono">{stem(r.filename)}</td>
+                    <td className="py-0.5 pr-2 text-[var(--color-text-muted)]">{r.group}</td>
+                    <td className="py-0.5 pr-2">
+                      {ci >= 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: classColor(cls, ci) }} />
+                          {cls.classes[ci].name}
+                        </span>
+                      ) : (
+                        <span className="text-[var(--color-text-muted)]">sem classe</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function Step({ n, title, children, note }: { n: number; title: string; children: ReactNode; note?: ReactNode }) {
@@ -199,12 +504,44 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
   const [pcX, setPcX] = useState(0)
   const [pcY, setPcY] = useState(1)
   const [colorBy, setColorBy] = useState<ColorBy>('grupo')
-  const [picked, setPicked] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string[]>([])
   const [hover, setHover] = useState<string | null>(null)
   const runs = useMemo(() => data?.runs ?? [], [data])
-  const { color, legend } = useColoring(runs, colorBy)
+  const classes = useStudyClasses(studyId)
+  // já tem classes no estudo: começa colorindo por elas
+  const autoClass = useRef(false)
+  useEffect(() => {
+    if (!autoClass.current && classes.cls.classes.length > 0) {
+      autoClass.current = true
+      setColorBy('classe')
+    }
+  }, [classes.cls.classes.length])
+  function updateClasses(next: StudyClasses) {
+    classes.update(next)
+    if (next.classes.length) setColorBy('classe')
+  }
+  const { color, legend } = useColoring(runs, colorBy, classes.cls)
+  const className = (t: string) => classes.cls.classes.find((c) => c.id === classes.cls.assign[t])?.name
   const k = data?.scores[0]?.length ?? 0
-  const focus = hover ?? picked
+  const selSet = useMemo(() => new Set(selected), [selected])
+  const picked = selected.length === 1 ? selected[0] : null
+  // a curva em destaque: a do mouse; senão, as selecionadas
+  const isFocus = (t: string) => (hover ? hover === t : selSet.has(t))
+  const anyFocus = hover !== null || selected.length > 0
+  // atualizações funcionais: cliques rápidos em sequência não se atropelam
+  function pointClick(id: number, mods: { ctrl: boolean; shift: boolean }) {
+    const t = runs[id].token
+    setSelected((cur) => {
+      const has = cur.includes(t)
+      if (mods.ctrl) return has ? cur.filter((x) => x !== t) : [...cur, t]
+      if (mods.shift) return has ? cur : [...cur, t]
+      return cur.length === 1 && has ? [] : [t]
+    })
+  }
+  function boxSelect(ids: number[], add: boolean) {
+    const ts = ids.map((i) => runs[i].token)
+    setSelected((cur) => (add ? [...new Set([...cur, ...ts])] : ts))
+  }
 
   const xSeries = useMemo<LineSeries[]>(() => {
     if (!data) return []
@@ -213,13 +550,14 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
       x: data.grid,
       y: row,
       color: color(data.runs[i]),
-      width: focus === data.runs[i].token ? 2.6 : 1.1,
-      opacity: focus && focus !== data.runs[i].token ? 0.25 : 0.85,
+      width: anyFocus && isFocus(data.runs[i].token) ? 2.6 : 1.1,
+      opacity: anyFocus && !isFocus(data.runs[i].token) ? 0.2 : 0.85,
       label: `${stem(data.runs[i].filename)} · ${data.runs[i].group}`,
     }))
     out.push({ key: '__mean', x: data.grid, y: data.mean, color: 'var(--color-text)', width: 2, dash: '6 4', label: 'média (o centro da nuvem)' })
     return out
-  }, [data, color, focus])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, color, hover, selSet])
 
   const scorePts = useMemo<PlotPoint[]>(() => {
     if (!data || k < 1) return []
@@ -228,10 +566,17 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
       y: k > 1 ? data.scores[i][Math.min(pcY, k - 1)] : 0,
       color: color(r),
       id: i,
-      hollow: focus !== null && focus !== r.token,
-      tip: [stem(r.filename), r.group, `PC${pcX + 1} ${f(data.scores[i][pcX], 3)} · PC${pcY + 1} ${f(data.scores[i][pcY], 3)}`, r.day ?? ''],
+      ring: selSet.has(r.token),
+      tip: [
+        stem(r.filename),
+        r.group,
+        `PC${pcX + 1} ${f(data.scores[i][pcX], 3)} · PC${pcY + 1} ${f(data.scores[i][pcY], 3)}`,
+        r.day ?? '',
+        className(r.token) ? `classe ${className(r.token)}` : '',
+      ].filter(Boolean),
     }))
-  }, [data, k, pcX, pcY, color, focus])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, k, pcX, pcY, color, selSet, classes.cls])
 
   const loadSeries = useMemo<LineSeries[]>(() => {
     if (!data) return []
@@ -247,9 +592,10 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
       y: data.q[i],
       color: color(r),
       id: i,
+      ring: selSet.has(r.token),
       tip: [stem(r.filename), r.group, `T² ${f(data.t2[i])} · Q ${f(data.q[i], 4)}`],
     }))
-  }, [data, color])
+  }, [data, color, selSet])
   const flagged = data
     ? data.runs
         .map((r, i) => ({ r, t2: data.t2[i], q: data.q[i] }))
@@ -285,20 +631,28 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-[var(--color-text-muted)]">colorir por</span>
             <select className={`${inputClass} w-48`} value={colorBy} onChange={(e) => setColorBy(e.target.value as ColorBy)}>
+              <option value="classe">classe (definida por você)</option>
               <option value="grupo">composição</option>
               <option value="dia">dia da análise</option>
+              <option value="ciclo">ciclo</option>
+              <option value="metodo">método</option>
               {data.materials.map((m) => (
                 <option key={m} value={`fracao:${m}`}>
                   fração de {m}
                 </option>
               ))}
             </select>
-            {picked && (
-              <button type="button" className="text-[var(--color-primary)] hover:underline" onClick={() => setPicked(null)}>
-                limpar seleção ({stem(runs[pickedIdx]?.filename ?? '')})
-              </button>
-            )}
           </div>
+
+          <ClassesPanel
+            cls={classes.cls}
+            update={updateClasses}
+            selected={selected}
+            setSelected={setSelected}
+            runs={runs}
+            saveState={classes.state}
+            saveError={classes.error}
+          />
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             <Step
@@ -325,7 +679,7 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
             <Step
               n={3}
               title="Scores — quem se parece com quem"
-              note="Cada ponto é uma corrida. Perto = curvas parecidas. Réplicas devem ficar juntas; um gradiente ao longo de um eixo é uma propriedade que varia (ex.: a fração). Clique num ponto para destacar a curva dela."
+              note="Cada ponto é uma corrida. Perto = curvas parecidas. Réplicas devem ficar juntas; um gradiente ao longo de um eixo é uma propriedade que varia (ex.: a fração). Clique para selecionar (a curva fica em destaque); Ctrl+clique ou Shift+clique somam; arraste um retângulo para pegar várias."
             >
               <div className="mb-1 flex items-center gap-2 text-xs">
                 eixo x
@@ -346,7 +700,8 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
                 vLines={[{ x: 0, label: '' }]}
                 height={280}
                 legend={legend}
-                onPointClick={(id) => setPicked((cur) => (cur === runs[id].token ? null : runs[id].token))}
+                onPointClick={pointClick}
+                onBoxSelect={boxSelect}
               />
             </Step>
             <Step
@@ -386,7 +741,7 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
                 hLine={data.q_limit ?? undefined}
                 vLines={data.t2_limit !== null ? [{ x: data.t2_limit, label: 'T² 95 %' }] : []}
                 height={240}
-                onPointClick={(id) => setPicked(runs[id].token)}
+                onPointClick={pointClick}
               />
               <div className="text-xs">
                 {flagged.length === 0 ? (
@@ -395,7 +750,7 @@ export function PostRunStudyPCA({ studyId }: { studyId: number }) {
                   <ul className="flex flex-col gap-1">
                     {flagged.map((o) => (
                       <li key={o.r.token}>
-                        <button type="button" className="text-left hover:underline" onClick={() => setPicked(o.r.token)}>
+                        <button type="button" className="text-left hover:underline" onClick={() => setSelected([o.r.token])}>
                           <span className="font-mono">{stem(o.r.filename)}</span>{' '}
                           <span className="text-[var(--color-text-muted)]">
                             ({o.r.group}) —{' '}

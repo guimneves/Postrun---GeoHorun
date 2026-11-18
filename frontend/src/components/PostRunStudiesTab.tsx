@@ -17,7 +17,7 @@ import { inputClass, btnClass, btnPrimaryClass, cardClass } from '../ui/classes'
 
 const xBtn = 'rounded px-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] disabled:opacity-30'
 
-const stem = (f: string) => f.replace(/.[A-Za-z]00$/i, '')
+const stem = (f: string) => f.replace(/\.[A-Za-z]00$/i, '')
 
 function headlineGroups(h: StudyHeadlineGroup[] | undefined): RecoveryGroup[] {
   return (h ?? []).map((g) => ({

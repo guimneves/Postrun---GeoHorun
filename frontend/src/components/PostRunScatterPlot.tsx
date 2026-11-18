@@ -27,6 +27,8 @@ export interface PlotPoint {
   id?: number
   /** linhas da caixa que aparece ao passar o mouse */
   tip?: string[]
+  /** anel em volta (ponto selecionado) */
+  ring?: boolean
 }
 
 interface Props {
@@ -51,7 +53,8 @@ interface Props {
   legend?: { label: string; color: string }[]
   /** traço da linha ajustada (ex.: "6 4" = pontilhada) */
   lineDash?: string
-  onPointClick?: (id: number) => void
+  /** `mods`: Ctrl/⌘ e Shift apertados no clique (seleção múltipla) */
+  onPointClick?: (id: number, mods: { ctrl: boolean; shift: boolean }) => void
   /** retângulo arrastado: ids dos pontos dentro; `include` = Shift apertado */
   onBoxSelect?: (ids: number[], include: boolean) => void
 }
@@ -119,7 +122,7 @@ export function PostRunScatterPlot({
     } catch {
       // segue sem captura
     }
-    setBox({ x0: v.x, y0: v.y, x1: v.x, y1: v.y, include: e.shiftKey })
+    setBox({ x0: v.x, y0: v.y, x1: v.x, y1: v.y, include: e.shiftKey || e.ctrlKey || e.metaKey })
   }
 
   function onMove(e: ReactPointerEvent<SVGSVGElement>) {
@@ -271,11 +274,12 @@ export function PostRunScatterPlot({
           onPointerEnter={() => setHover(i)}
           onPointerLeave={() => setHover((h) => (h === i ? null : h))}
           onPointerDown={(e) => onPointClick && e.stopPropagation()}
-          onClick={() => p.id !== undefined && onPointClick?.(p.id)}
+          onClick={(e) => p.id !== undefined && onPointClick?.(p.id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })}
           style={onPointClick ? { cursor: 'pointer' } : undefined}
         >
           {/* área de clique maior que o marcador */}
           <circle cx={sx(p.x)} cy={sy(p.y)} r={9} fill="transparent" />
+          {p.ring && <circle cx={sx(p.x)} cy={sy(p.y)} r={8} fill="none" stroke="var(--color-text)" strokeWidth={1.6} />}
           <circle
             cx={sx(p.x)}
             cy={sy(p.y)}

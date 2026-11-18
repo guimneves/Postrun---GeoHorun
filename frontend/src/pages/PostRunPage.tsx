@@ -128,7 +128,7 @@ function channelKey(curveName: 'pyro' | 'oxi', channel: string): string {
 /** Parte do nome da análise depois do código da amostra (réplica), para
  * distinguir no workspace duas análises da mesma amostra. */
 function replicaTag(filename: string): string {
-  const base = filename.replace(/.[A-Za-z]00$/i, '')
+  const base = filename.replace(/\.[A-Za-z]00$/i, '')
   const m = base.match(/[_ -]([^_ -]+)$/)
   return m ? m[1] : base
 }
@@ -151,6 +151,11 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
  * regiões sobre a curva e calcular a área, em várias análises ao mesmo
  * tempo. Não calcula nenhum parâmetro geoquímico (S1/S2/S3/Tmax/TOC/...
  * continua sendo trabalho do GeoWorks). */
+/** Ciclo de uma análise: o nome do ciclo no arquivo (CyclN — BASIC, tabaco200…). */
+function cycleOf(a: { cycle_name: string }): string {
+  return a.cycle_name?.trim() || 'sem ciclo'
+}
+
 /** Método do equipamento de uma análise: o CyclT do arquivo (BULK ROCK,
  * MULTI-HEATING RATES, PURE OIL…); sem ele, a pasta do método no job, e por
  * fim a extensão (.B00, .M00…). */
@@ -225,6 +230,8 @@ export function PostRunPage() {
   // filtro por método do equipamento (18/11/2026): BULK ROCK (.B00),
   // MULTI-HEATING RATES (.M00), PURE OIL (.O00)… — '' = todos
   const [methodFilter, setMethodFilter] = useState('')
+  // filtro por ciclo (18/11/2026): o CyclN do arquivo (BASIC, tabaco200…)
+  const [cycleFilter, setCycleFilter] = useState('')
 
   const [openTokens, setOpenTokens] = useState<string[]>([])
   const [details, setDetails] = useState<Record<string, AnalysisDetail>>({})
@@ -543,11 +550,28 @@ export function PostRunPage() {
   useEffect(() => {
     if (methodFilter && !methods.some(([m]) => m === methodFilter)) setMethodFilter('')
   }, [methods, methodFilter])
+  // ciclos das análises do método escolhido (o filtro de ciclo segue o de método)
+  const cycles = useMemo(() => {
+    const count = new Map<string, { n: number; labels: Set<string> }>()
+    for (const a of analyses) {
+      if (methodFilter && methodOf(a) !== methodFilter) continue
+      const c = cycleOf(a)
+      const e = count.get(c) ?? { n: 0, labels: new Set<string>() }
+      e.n += 1
+      if (a.cycle_label) e.labels.add(a.cycle_label)
+      count.set(c, e)
+    }
+    return [...count.entries()].sort((x, y) => x[0].localeCompare(y[0]))
+  }, [analyses, methodFilter])
+  useEffect(() => {
+    if (cycleFilter && !cycles.some(([c]) => c === cycleFilter)) setCycleFilter('')
+  }, [cycles, cycleFilter])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return analyses.filter((a) => {
       if (methodFilter && methodOf(a) !== methodFilter) return false
+      if (cycleFilter && cycleOf(a) !== cycleFilter) return false
       if (dateFrom && (!a.date || a.date.slice(0, 10) < dateFrom)) return false
       if (dateTo && (!a.date || a.date.slice(0, 10) > dateTo)) return false
       if (!q) return true
@@ -557,7 +581,7 @@ export function PostRunPage() {
         a.job.toLowerCase().includes(q)
       )
     })
-  }, [analyses, search, dateFrom, dateTo, methodFilter])
+  }, [analyses, search, dateFrom, dateTo, methodFilter, cycleFilter])
 
   // Pedido do usuário: escolher o critério de ordenação (amostra, data,
   // análise, massa) — agrupado por amostra pra facilitar seleção múltipla
@@ -1414,6 +1438,24 @@ export function PostRunPage() {
                 </option>
               ))}
             </select>
+            <span>Ciclo</span>
+            <select
+              className={inputClass}
+              value={cycleFilter}
+              onChange={(e) => setCycleFilter(e.target.value)}
+              title={
+                cycles.find(([c]) => c === cycleFilter)?.[1].labels.size
+                  ? [...(cycles.find(([c]) => c === cycleFilter)?.[1].labels ?? [])].join('\n')
+                  : 'ciclo do equipamento (nome do ciclo no arquivo — CyclN); o programa do forno aparece ao escolher'
+              }
+            >
+              <option value="">todos ({cycles.reduce((s, [, e]) => s + e.n, 0)})</option>
+              {cycles.map(([c, e]) => (
+                <option key={c} value={c}>
+                  {c} ({e.n})
+                </option>
+              ))}
+            </select>
             <span>Ordem</span>
             <select
               className={inputClass}
@@ -1590,7 +1632,7 @@ export function PostRunPage() {
                             onChange={() => toggleOpen(a.token)}
                           />
                           <span className="min-w-0 flex-1 cursor-pointer truncate font-mono text-[var(--color-text-muted)]" onClick={() => toggleOpen(a.token)}>
-                            {a.filename.replace(/.[A-Za-z]00$/i, '')}
+                            {a.filename.replace(/\.[A-Za-z]00$/i, '')}
                           </span>
                           <PostRunMassEdit
                             token={a.token}
@@ -1628,7 +1670,7 @@ export function PostRunPage() {
                         </span>
                         <span className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleOpen(a.token)}>
                           <span className="block truncate font-mono text-[11.5px] font-medium text-[var(--color-text)]" title={a.filename}>
-                            {a.filename.replace(/.[A-Za-z]00$/i, '')}
+                            {a.filename.replace(/\.[A-Za-z]00$/i, '')}
                           </span>
                           {runRecords[a.token]?.excluded && (
                             <span
@@ -2290,7 +2332,7 @@ export function PostRunPage() {
       {recordTokens && (
         <RunRecordModal
           tokens={recordTokens}
-          labelOf={(t) => (analysesByToken[t]?.filename ?? t).replace(/.[A-Za-z]00$/i, '')}
+          labelOf={(t) => (analysesByToken[t]?.filename ?? t).replace(/\.[A-Za-z]00$/i, '')}
           onClose={() => setRecordTokens(null)}
           onChanged={(rs) => setRunRecords((prev) => ({ ...prev, ...Object.fromEntries(rs.map((r) => [r.token, r])) }))}
         />

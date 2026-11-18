@@ -111,7 +111,7 @@ export function PostRunRobustnessPanel({
                   <span className="text-xs text-[var(--color-text-muted)]">deixando de fora…</span>
                   {data.loro.map((l) => (
                     <div key={l.left_out} className="flex items-center gap-2 text-xs">
-                      <span className="w-48 truncate font-mono" title={l.filename}>{l.filename.replace(/.[A-Za-z]00$/i, '')}</span>
+                      <span className="w-48 truncate font-mono" title={l.filename}>{l.filename.replace(/\.[A-Za-z]00$/i, '')}</span>
                       {l.recovery_mean !== null ? (
                         <>
                           <span className="relative h-2 flex-1 rounded bg-[var(--color-bg-elevated)]">
@@ -168,7 +168,7 @@ export function PostRunRobustnessPanel({
                 <tbody>
                   {data.combined.map((c) => (
                     <tr key={c.token} className="border-t border-[var(--color-border)]">
-                      <td className="py-1 pr-3 font-mono text-xs">{c.filename.replace(/.[A-Za-z]00$/i, '')}</td>
+                      <td className="py-1 pr-3 font-mono text-xs">{c.filename.replace(/\.[A-Za-z]00$/i, '')}</td>
                       <td className="py-1 pr-3 tabular-nums">{c.found_mg != null ? fmtNum(c.found_mg) : '—'}</td>
                       <td className="py-1 pr-3 tabular-nums">{c.u_fit_mg != null ? fmtNum(c.u_fit_mg) : '—'}</td>
                       <td className="py-1 pr-3 tabular-nums">{c.u_template_mg != null ? fmtNum(c.u_template_mg) : '—'}</td>

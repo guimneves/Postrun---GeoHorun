@@ -16,7 +16,7 @@ import { inputInlineClass as inputClass, btnClass, cardClass } from '../ui/class
 
 /** nome da análise sem a extensão (ex.: PP_60mg_001) */
 function runName(r: { filename: string; token: string }): string {
-  return (r.filename || r.token).replace(/.[A-Za-z]00$/i, '')
+  return (r.filename || r.token).replace(/\.[A-Za-z]00$/i, '')
 }
 
 function median(v: number[]): number {

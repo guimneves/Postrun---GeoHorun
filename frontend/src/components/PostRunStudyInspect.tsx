@@ -5,7 +5,7 @@ import { overlaySeriesOf, shapeSeriesOf } from '../lib/postrunShape'
 import { PostRunLinesPlot } from './PostRunLinesPlot'
 import { recoveryColor } from './PostRunRecoveryViz'
 
-const stem = (f: string) => f.replace(/.[A-Za-z]00$/i, '')
+const stem = (f: string) => f.replace(/\.[A-Za-z]00$/i, '')
 const signed = (v: number | null | undefined, unit: string, d = 1) =>
   v === null || v === undefined ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(d)} ${unit}`
 

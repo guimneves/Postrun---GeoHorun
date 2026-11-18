@@ -60,6 +60,8 @@ class ChemRunOut(BaseModel):
     composition: dict[str, float] | None = None
     mass_mg: float | None = None
     day: str | None = None
+    cycle: str = ""  # nome do ciclo (CyclN)
+    method: str = ""  # método (CyclT: BULK ROCK, MULTI-HEATING RATES…)
     tmax_c: float | None = None
     shift_c: float = 0.0
 
@@ -155,6 +157,7 @@ def _run_out(info: _AnalysisInfo) -> ChemRunOut:
         token=sm.token, filename=sm.filename, sample=sm.sample,
         group=_group_key(comp, sm.cycle_key, sm.components), kind=kind, composition=comp,
         mass_mg=sm.mass_mg or None, day=sm.date.date().isoformat() if sm.date else None,
+        cycle=sm.cycle_name, method=sm.method_folder,
     )
 
 
@@ -304,3 +307,74 @@ def study_pls(study_id: int, payload: PLSIn, session: SessionDep, _user: Current
         prep=prep, target=payload.target, unit="mg" if payload.target == "mass" else "%", cv=payload.cv,
         n_groups=len(set(groups)), grid=_r(grid, 3), runs=runs, materials=out, excluded=excluded, errors=errors,
     )
+
+
+# ---------------------------------------------------------------- classes
+
+class StudyClassIn(BaseModel):
+    id: str
+    name: str
+    color: str = ""
+
+
+class StudyClassesIO(BaseModel):
+    """Classes da PCA (18/11/2026): a pessoa cria classes (ex.: 1, 2, 3 ou
+    "cigarro", "charuto") e põe cada corrida numa delas, para ver se os
+    agrupamentos da PCA correspondem a elas. Só rótulos: nada é recalculado."""
+
+    classes: list[StudyClassIn] = []
+    assign: dict[str, str] = {}  # token -> id da classe
+
+
+MAX_CLASSES = 20
+
+
+def _classes_of(s: PostrunStudy) -> StudyClassesIO:
+    if not s.classes:
+        return StudyClassesIO()
+    try:
+        return StudyClassesIO.model_validate_json(s.classes)
+    except ValueError:
+        return StudyClassesIO()
+
+
+@router.get("/{study_id}/classes", response_model=StudyClassesIO)
+def get_classes(study_id: int, session: SessionDep, _user: CurrentUser):
+    s = _get(session, study_id)
+    out = _classes_of(s)
+    tokens = set(_ids(s.tokens))
+    # corrida que saiu do estudo não aparece mais
+    out.assign = {t: c for t, c in out.assign.items() if t in tokens}
+    return out
+
+
+@router.put("/{study_id}/classes", response_model=StudyClassesIO)
+def set_classes(study_id: int, payload: StudyClassesIO, session: SessionDep, _user: CurrentUser):
+    """Grava as classes e quem está em cada uma. Vale também em estudo
+    finalizado: são rótulos descritivos, não mudam nenhum resultado."""
+    s = _get(session, study_id)
+    if len(payload.classes) > MAX_CLASSES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"no máximo {MAX_CLASSES} classes")
+    ids: set[str] = set()
+    names: set[str] = set()
+    for c in payload.classes:
+        c.id, c.name, c.color = c.id.strip(), c.name.strip(), c.color.strip()
+        if not c.id or not c.name:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "toda classe precisa de um nome")
+        if len(c.name) > 60:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "nome de classe longo demais (máx. 60)")
+        if c.id in ids or c.name.lower() in names:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"classe repetida: {c.name}")
+        if c.color and not (len(c.color) == 7 and c.color.startswith("#")):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"cor inválida: {c.color}")
+        ids.add(c.id)
+        names.add(c.name.lower())
+    tokens = set(_ids(s.tokens))
+    bad = [t for t in payload.assign if t not in tokens]
+    if bad:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"corrida fora do estudo: {bad[0]}")
+    payload.assign = {t: c for t, c in payload.assign.items() if c in ids}
+    s.classes = payload.model_dump_json()
+    session.add(s)
+    session.commit()
+    return payload

@@ -38,7 +38,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         </li>
         <li>
           Marque as análises que quer abrir (a caixa do nome da amostra marca todas as réplicas). Use a busca, o filtro de{' '}
-          <strong>Método</strong> (BULK ROCK, MULTI-HEATING RATES, PURE OIL… — a pasta do método no job), a{' '}
+          <strong>Método</strong> (BULK ROCK, MULTI-HEATING RATES, PURE OIL… — a pasta do método no job), o de{' '}
+          <strong>Ciclo</strong> (o nome do ciclo no arquivo: BASIC, tabaco200…; segue o método escolhido), a{' '}
           <strong>Ordem</strong> e o filtro de <strong>Data</strong> para achar mais rápido. Todo método do equipamento
           entra na lista: o arquivo tem o mesmo formato, só muda a extensão (<code>.B00</code>, <code>.M00</code>,{' '}
           <code>.O00</code>…); o multi-heating rates mostra o programa do forno com as várias rampas. O ícone de olho riscado, que
@@ -667,7 +668,12 @@ export const MANUAL_SECTIONS: ManualSection[] = [
             grupos, deriva entre dias — colorir por composição, dia ou fração de um material), os <strong>loadings</strong>
             × temperatura (onde está a diferença: lóbulo positivo num pico e negativo no outro = troca de material; lóbulos
             nas laterais = alargamento) e o gráfico <strong>T² × Q</strong> com os limites de 95 % (extrema × forma
-            diferente).
+            diferente). <strong>Classes</strong>: crie classes no próprio estudo (1, 2, 3… ou nomes) e selecione as
+            corridas no gráfico de scores ou na lista — clique, <strong>Ctrl+clique</strong> (soma/tira),{' '}
+            <strong>Shift+clique</strong> (soma; na lista, um intervalo) ou arraste um retângulo — e aplique a classe com um
+            clique ou com as teclas <strong>1–9</strong> (0 tira, Esc limpa). As classes ficam guardadas no estudo e só
+            mudam a cor dos pontos (&quot;colorir por classe&quot;), para comparar os agrupamentos com o que se sabe das
+            amostras; também dá para colorir por ciclo e por método.
           </li>
           <li>
             <strong>PLS</strong> — um modelo por material que prevê a massa (mg) ou a fração (%) pela curva. Usa os puros e

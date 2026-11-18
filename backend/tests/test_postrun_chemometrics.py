@@ -168,3 +168,20 @@ def test_pca_explicit_range_works_beyond_the_common_one(user_client, jobs):
     body = user_client.post(f"/api/postrun/studies/{sid}/pca", json={"t_min": 250, "t_max": 700}).json()
     assert body["prep"]["t_min"] == 250 and body["prep"]["t_max"] == 700
     assert any("completadas com zero" in e for e in body["errors"])
+
+
+def test_study_classes_round_trip_and_validation(user_client, jobs):
+    sid = _study(user_client, jobs)
+    tokens = user_client.get(f"/api/postrun/studies/{sid}").json()["tokens"]
+    assert user_client.get(f"/api/postrun/studies/{sid}/classes").json() == {"classes": [], "assign": {}}
+    body = {"classes": [{"id": "a", "name": "1", "color": "#0072B2"}, {"id": "b", "name": "2"}],
+            "assign": {tokens[0]: "a", tokens[1]: "b", tokens[2]: "sumiu"}}
+    r = user_client.put(f"/api/postrun/studies/{sid}/classes", json=body)
+    assert r.status_code == 200, r.text
+    got = user_client.get(f"/api/postrun/studies/{sid}/classes").json()
+    assert got["assign"] == {tokens[0]: "a", tokens[1]: "b"}  # classe inexistente cai fora
+    assert [c["name"] for c in got["classes"]] == ["1", "2"]
+    dup = {"classes": [{"id": "a", "name": "X"}, {"id": "b", "name": "x"}], "assign": {}}
+    assert user_client.put(f"/api/postrun/studies/{sid}/classes", json=dup).status_code == 400
+    out = {"classes": [{"id": "a", "name": "1"}], "assign": {"Outro/job.B00": "a"}}
+    assert user_client.put(f"/api/postrun/studies/{sid}/classes", json=out).status_code == 400

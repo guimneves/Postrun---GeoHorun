@@ -67,6 +67,7 @@ def _run_migrations() -> None:
     #   _ensure_column("minha_tabela", "observacoes", "VARCHAR")
     _ensure_column("postruncurve", "limits", "VARCHAR", "''")  # F2 (14/11/2026)
     _ensure_column("postrunstudy", "validation", "VARCHAR", "''")  # F3 (14/11/2026)
+    _ensure_column("postrunstudy", "classes", "VARCHAR", "''")  # classes da PCA (18/11/2026)
 
 
 def create_db_and_tables() -> None:
