@@ -133,6 +133,40 @@ def test_each_analysis_can_go_to_a_different_sample(admin_client, db_engine, job
         "assignments": [{"token": T1, "library_sample_id": 999}]}).status_code == 404
 
 
+def test_batch_in_parts_gives_the_same_names(admin_client, db_engine, jobs, b00_source, re7s):
+    # 2026-11-19: 21 análises passavam dos 30 s do proxy do Core — a interface
+    # manda a operação em partes; os nomes têm de sair iguais aos de um pedido só
+    a = re7s.add_library_sample("AMOSTRA_A")
+    other = jobs / DIR / "2026-07-17_OUTRA_1.B00"
+    shutil.copy(b00_source / T1, other)
+    other.write_bytes(b00_sample.with_sample(other.read_bytes(), "OUTRA"))
+    t_other = f"{DIR}/2026-07-17_OUTRA_1.B00"
+    everything = [T1, t_other]
+    url = "/api/postrun/analyses/change-sample"
+
+    whole = admin_client.post(url, json={"assignments": [{"token": t, "library_sample_id": a} for t in everything],
+                                         "dry_run": True}).json()
+    planned = {i["token"]: i["new_analysis_name"] for i in whole["items"]}
+    assert sorted(planned.values()) == ["2026-07-17_AMOSTRA_A_1", "2026-07-17_AMOSTRA_A_2"]
+
+    # prévia em partes, na ordem devolvida pelo pedido inteiro
+    order = [i["token"] for i in whole["items"]]
+    reserved: list[str] = []
+    for t in order:
+        part = admin_client.post(url, json={"assignments": [{"token": t, "library_sample_id": a}], "dry_run": True,
+                                            "context_tokens": everything, "reserved_names": reserved}).json()
+        item = part["items"][0]
+        assert item["new_analysis_name"] == planned[t]
+        reserved.append(item["new_analysis_name"])
+
+    # troca de verdade, uma por vez
+    for t in order:
+        part = admin_client.post(url, json={"assignments": [{"token": t, "library_sample_id": a}],
+                                            "context_tokens": everything}).json()
+        assert part["items"][0]["status"] == "done"
+        assert part["items"][0]["new_analysis_name"] == planned[t]
+
+
 def test_read_only_agent_folder_changes_nothing(admin_client, db_engine, jobs, monkeypatch, re7s):
     right = re7s.add_library_sample("STD_CERTA")
     monkeypatch.setattr("app.api.routes_analysis_rename.settings.agent_mode", True)

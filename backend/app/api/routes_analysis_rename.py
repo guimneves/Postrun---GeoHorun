@@ -366,6 +366,14 @@ class ChangeSampleIn(BaseModel):
     library_sample_id: int | None = None
     assignments: list[ChangeSampleAssignment] = []
     dry_run: bool = False
+    # Lote dividido em partes pela interface (cada pedido precisa caber nos
+    # 30 s do proxy do Core — 2026-11-19, "Módulo 'geohorun' inacessível" com
+    # 21 análises): `context_tokens` são TODAS as análises da operação (os
+    # nomes atuais delas ficam reservados, como num pedido só) e
+    # `reserved_names`, os nomes novos já planejados nas partes anteriores da
+    # prévia (na troca de verdade eles já existem e são vistos sozinhos).
+    context_tokens: list[str] = []
+    reserved_names: list[str] = []
 
 
 class ChangeSampleItemOut(BaseModel):
@@ -438,6 +446,11 @@ def _agent_error_message(exc: Exception) -> str:
     return str(exc)
 
 
+def _cached_b00(session: SessionDep, token: str) -> bytes | None:
+    cached = session.get(PostrunB00Cache, token)
+    return cached.content.encode("utf-8", errors="replace") if cached is not None else None
+
+
 @router.post("/analyses/change-sample", response_model=ChangeSampleOut)
 def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep):
     """Troca a amostra de várias análises: `Sample=` dentro do `.B00` (e do
@@ -481,8 +494,8 @@ def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep)
     # nomes já tomados por outra análise deste lote — inclusive os nomes ATUAIS
     # das análises do lote: com amostras diferentes, uma pode querer o nome que
     # a outra ainda tem; nunca reaproveitar deixa a prévia igual ao que acontece
-    reserved: set[str] = set()
-    for t in tokens:
+    reserved: set[str] = set(payload.reserved_names)
+    for t in dict.fromkeys([*tokens, *payload.context_tokens]):
         try:
             reserved.add(ar.split_token(t).name)
         except ar.RenameError:
@@ -508,7 +521,11 @@ def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep)
             item.error = reason
             continue
         try:
-            content = _read_raw(session, token)
+            # a prévia só precisa da linha Sample=: vem do cache do .B00 quando
+            # existe (sem ida ao Agente); a troca de verdade lê o arquivo fresco
+            content = _cached_b00(session, token) if payload.dry_run else None
+            if content is None:
+                content = _read_raw(session, token)
             old_sample = b00_sample.read_sample(content)
             item.old_sample = old_sample
             try:

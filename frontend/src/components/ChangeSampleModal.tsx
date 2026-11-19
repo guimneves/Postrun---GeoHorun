@@ -10,6 +10,13 @@
 // mesmo tempo"): cada análise tem a sua amostra certa. Marque análises e
 // toque numa amostra — ela vai para as marcadas; sem nenhuma marcada, vai
 // para todas as que ainda não têm amostra (com uma amostra só, é um clique).
+//
+// Em partes (2026-11-19, "Módulo 'geohorun' inacessível" com 21 análises):
+// cada pedido precisa caber nos 30 s do proxy do Core, e cada análise pode
+// custar várias idas ao Agente do equipamento. A prévia vai em blocos e a
+// troca, uma análise por pedido, na ordem do servidor (réplicas _1, _2, _3);
+// `context_tokens`/`reserved_names` fazem os nomes saírem iguais aos de um
+// pedido só.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api/client'
 import { libraryApi, type LibrarySampleOut, type SampleGroupOut } from '../api/library'
@@ -31,6 +38,36 @@ const STATUS_COLOR: Record<ChangeSampleItem['status'], string> = {
 
 function nameOf(token: string): string {
   return (token.split('/').pop() ?? token).replace(/\.[A-Za-z]00$/i, '')
+}
+
+const PREVIEW_CHUNK = 6
+
+/** A mesma ordem do servidor: réplicas da mesma amostra e dia em sequência. */
+function byServerOrder(a: string, b: string): number {
+  const key = (t: string): [string, number] => {
+    const m = /^(\d{4}-\d{2}-\d{2})_(.+)_(\d+)$/.exec(nameOf(t))
+    return m ? [m[1] + m[2], Number(m[3])] : [nameOf(t), 0]
+  }
+  const [ka, kb] = [key(a), key(b)]
+  if (ka[0] !== kb[0]) return ka[0] < kb[0] ? -1 : 1
+  return ka[1] - kb[1]
+}
+
+/** Junta as partes num resultado só (como se fosse um pedido). */
+function merge(items: ChangeSampleItem[], dryRun: boolean): ChangeSampleResult {
+  const ids = new Set(items.map((i) => i.library_sample_id))
+  const single = ids.size === 1 ? items[0] : null
+  const count = (k: ChangeSampleItem['status']) => items.filter((i) => i.status === k).length
+  return {
+    library_sample_id: single?.library_sample_id ?? null,
+    code: single?.code ?? null,
+    name: null,
+    dry_run: dryRun,
+    done: count('done'),
+    failed: count('failed'),
+    skipped: count('skipped'),
+    items,
+  }
 }
 
 interface Props {
@@ -55,6 +92,7 @@ export function ChangeSampleModal({ tokens, onClose, onDone }: Props) {
   const [preview, setPreview] = useState<{ key: string; result: ChangeSampleResult } | null>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [result, setResult] = useState<ChangeSampleResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -101,15 +139,25 @@ export function ChangeSampleModal({ tokens, onClose, onDone }: Props) {
       return
     }
     let cancelled = false
-    const timer = window.setTimeout(() => {
-      postrunApi
-        .changeSample({ assignments, dry_run: true })
-        .then((r) => {
-          if (!cancelled) setPreview({ key: assignmentsKey, result: r })
-        })
-        .catch((err) => {
-          if (!cancelled) setPreviewError(err instanceof ApiError ? err.message : 'Erro ao conferir')
-        })
+    const timer = window.setTimeout(async () => {
+      const ordered = [...assignments].sort((a, b) => byServerOrder(a.token, b.token))
+      const context = ordered.map((a) => a.token)
+      const items: ChangeSampleItem[] = []
+      try {
+        for (let i = 0; i < ordered.length && !cancelled; i += PREVIEW_CHUNK) {
+          const reserved = items.filter((it) => it.status === 'planned' && it.new_analysis_name).map((it) => it.new_analysis_name as string)
+          const part = await postrunApi.changeSample({
+            assignments: ordered.slice(i, i + PREVIEW_CHUNK),
+            dry_run: true,
+            context_tokens: context,
+            reserved_names: reserved,
+          })
+          items.push(...part.items)
+        }
+        if (!cancelled) setPreview({ key: assignmentsKey, result: merge(items, true) })
+      } catch (err) {
+        if (!cancelled) setPreviewError(err instanceof ApiError ? err.message : 'Erro ao conferir')
+      }
     }, 300)
     return () => {
       cancelled = true
@@ -156,17 +204,38 @@ export function ChangeSampleModal({ tokens, onClose, onDone }: Props) {
     lastClicked.current = index
   }
 
+  // uma análise por pedido, na ordem da prévia; a que falhar fica marcada e
+  // as outras seguem (refazer é seguro: o que já estiver certo é pulado)
   async function confirm() {
-    if (assignments.length === 0) return
+    if (!currentPreview) return
+    const todo = currentPreview.items.filter((i) => i.status === 'planned')
+    if (todo.length === 0) return
+    const context = assignments.map((a) => a.token)
+    const byToken = new Map(currentPreview.items.map((i) => [i.token, i]))
     setSubmitting(true)
     setSubmitError(null)
-    try {
-      setResult(await postrunApi.changeSample({ assignments }))
-    } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : 'Erro ao trocar a amostra')
-    } finally {
-      setSubmitting(false)
+    setProgress({ done: 0, total: todo.length })
+    for (const [n, item] of todo.entries()) {
+      try {
+        const part = await postrunApi.changeSample({
+          assignments: [{ token: item.token, library_sample_id: item.library_sample_id as number }],
+          context_tokens: context,
+        })
+        for (const it of part.items) byToken.set(it.token, it)
+      } catch (err) {
+        byToken.set(item.token, {
+          ...item,
+          status: 'failed',
+          error:
+            (err instanceof ApiError ? err.message : 'Erro ao trocar a amostra') +
+            ' — pode ter sido trocada mesmo assim; feche, confira a lista e refaça se preciso.',
+        })
+      }
+      setProgress({ done: n + 1, total: todo.length })
     }
+    setResult(merge([...byToken.values()], false))
+    setProgress(null)
+    setSubmitting(false)
   }
 
   function close() {
@@ -402,7 +471,7 @@ export function ChangeSampleModal({ tokens, onClose, onDone }: Props) {
               className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--color-primary-contrast)]
                          bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
             >
-              {submitting ? 'Trocando…' : `Trocar em ${plannedCount} análise${plannedCount === 1 ? '' : 's'}`}
+              {submitting ? `Trocando ${progress ? `${progress.done}/${progress.total}` : ''}…` : `Trocar em ${plannedCount} análise${plannedCount === 1 ? '' : 's'}`}
             </button>
           )}
         </div>

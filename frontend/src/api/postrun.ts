@@ -904,7 +904,14 @@ export const postrunApi = {
   changeSample: (
     payload:
       | { tokens: string[]; library_sample_id: number; dry_run?: boolean }
-      | { assignments: { token: string; library_sample_id: number }[]; dry_run?: boolean },
+      | {
+          assignments: { token: string; library_sample_id: number }[]
+          dry_run?: boolean
+          /** todas as análises da operação, quando ela vai em partes */
+          context_tokens?: string[]
+          /** nomes novos já planejados nas partes anteriores da prévia */
+          reserved_names?: string[]
+        },
   ) =>
     api.post<ChangeSampleResult>('/postrun/analyses/change-sample', payload),
 }
