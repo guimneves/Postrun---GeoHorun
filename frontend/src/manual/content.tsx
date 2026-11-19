@@ -760,7 +760,10 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         <p>
           <strong>Trocar amostra…</strong> — quando a amostra errada da biblioteca foi escolhida no cadastro e o{' '}
           <code>.B00</code> saiu com o nome errado: marque as análises, filtre por <strong>grupo</strong> e{' '}
-          <strong>subgrupo</strong> (ou busque) e escolha a amostra certa. A janela mostra, para cada análise, o{' '}
+          <strong>subgrupo</strong> (ou busque) e toque na amostra certa — ela vai para todas. Para{' '}
+          <strong>amostras diferentes</strong> no mesmo lote, marque na janela as análises de uma amostra (Shift marca um
+          intervalo) e toque nela; repita para as outras. Sem nenhuma marcada, a amostra tocada vai para as que ainda estão
+          sem amostra; o <strong>×</strong> tira a escolha de uma análise (ela não muda). A janela mostra, para cada análise, o{' '}
           <code>Sample=</code> gravado no arquivo e o nome novo: o código no meio do nome muda; data, extra e réplica
           ficam. Ao confirmar, o nome da amostra muda <strong>dentro</strong> do <code>.B00</code> (e do{' '}
           <code>.B00~</code>) e o arquivo é renomeado; regiões, deconvoluções e curvas acompanham. O Agente do equipamento

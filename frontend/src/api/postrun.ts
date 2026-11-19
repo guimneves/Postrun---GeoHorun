@@ -111,12 +111,16 @@ export interface ChangeSampleItem {
   status: 'planned' | 'done' | 'failed' | 'skipped'
   renumbered: boolean
   error: string | null
+  /** amostra certa desta análise (no lote podem ser várias) */
+  library_sample_id: number | null
+  code: string | null
 }
 
 export interface ChangeSampleResult {
-  library_sample_id: number
-  code: string
-  name: string
+  /** preenchidos só quando o lote inteiro vai para a mesma amostra */
+  library_sample_id: number | null
+  code: string | null
+  name: string | null
   dry_run: boolean
   done: number
   failed: number
@@ -896,7 +900,12 @@ export const postrunApi = {
 
   /** Mover várias análises para outro job (só admin) — resultado por análise. */
   moveBatch: (payload: MoveBatchInput) => api.post<MoveBatchResult>('/postrun/analyses/move-batch', payload),
-  changeSample: (payload: { tokens: string[]; library_sample_id: number; dry_run?: boolean }) =>
+  /** uma amostra para todas (tokens + library_sample_id) ou uma por análise (assignments) */
+  changeSample: (
+    payload:
+      | { tokens: string[]; library_sample_id: number; dry_run?: boolean }
+      | { assignments: { token: string; library_sample_id: number }[]; dry_run?: boolean },
+  ) =>
     api.post<ChangeSampleResult>('/postrun/analyses/change-sample', payload),
 }
 

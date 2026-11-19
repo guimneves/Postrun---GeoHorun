@@ -385,8 +385,10 @@ export function PostRunPage() {
     const changed = new Set(result.items.filter((i) => i.status === 'done').map((i) => i.new_token ?? i.token))
     setDetails((prev) => Object.fromEntries(Object.entries(prev).filter(([t]) => !changed.has(t))))
     scan.rescan()
+    const codes = new Set(result.items.filter((i) => i.status === 'done' && i.code).map((i) => i.code))
     setMessage(
-      `Amostra ${result.code}: ${result.done} análise(s) trocada(s)` +
+      (result.code ? `Amostra ${result.code}` : `${codes.size} amostra(s)`) +
+        `: ${result.done} análise(s) trocada(s)` +
         (result.failed ? `, ${result.failed} não trocada(s)` : '') +
         (result.skipped ? `, ${result.skipped} ignorada(s)` : '') +
         '.',

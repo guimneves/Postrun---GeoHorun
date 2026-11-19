@@ -106,6 +106,33 @@ def test_change_sample_in_batch_renumbers_replicas(admin_client, db_engine, jobs
     assert third["status"] == "done" and third["renumbered"] and third["new_analysis_name"] == "2026-07-17_STD_CERTA_3"
 
 
+def test_each_analysis_can_go_to_a_different_sample(admin_client, db_engine, jobs, re7s):
+    # pedido do usuário (2026-11-19): trocar para amostras diferentes no mesmo lote
+    a = re7s.add_library_sample("AMOSTRA_A")
+    b = re7s.add_library_sample("AMOSTRA_B")
+    body = {"assignments": [{"token": T1, "library_sample_id": a}, {"token": T2, "library_sample_id": b}]}
+    preview = admin_client.post("/api/postrun/analyses/change-sample", json={**body, "dry_run": True})
+    assert preview.status_code == 200, preview.text
+    planned = {i["token"]: (i["code"], i["new_analysis_name"]) for i in preview.json()["items"]}
+    assert planned == {T1: ("AMOSTRA_A", "2026-07-17_AMOSTRA_A_1"), T2: ("AMOSTRA_B", "2026-07-17_AMOSTRA_B_2")}
+    assert preview.json()["code"] is None  # mais de uma amostra no lote
+
+    r = admin_client.post("/api/postrun/analyses/change-sample", json=body).json()
+    assert r["done"] == 2
+    assert {(i["token"], i["new_analysis_name"]) for i in r["items"]} == {
+        (t, n) for t, (_, n) in planned.items()}  # a prévia é o que aconteceu
+    assert b00_sample.read_sample((jobs / DIR / "2026-07-17_AMOSTRA_A_1.B00").read_bytes()) == "AMOSTRA_A"
+    assert b00_sample.read_sample((jobs / DIR / "2026-07-17_AMOSTRA_B_2.B00").read_bytes()) == "AMOSTRA_B"
+    with Session(db_engine) as s:
+        recs = s.exec(select(AnalysisRename).where(AnalysisRename.old_sample == "STDA")).all()
+        assert {(r.new_sample, r.new_library_sample_id) for r in recs} == {("AMOSTRA_A", a), ("AMOSTRA_B", b)}
+
+    # sem amostra nenhuma: erro claro; amostra que não existe: 404
+    assert admin_client.post("/api/postrun/analyses/change-sample", json={"tokens": [T1]}).status_code == 422
+    assert admin_client.post("/api/postrun/analyses/change-sample", json={
+        "assignments": [{"token": T1, "library_sample_id": 999}]}).status_code == 404
+
+
 def test_read_only_agent_folder_changes_nothing(admin_client, db_engine, jobs, monkeypatch, re7s):
     right = re7s.add_library_sample("STD_CERTA")
     monkeypatch.setattr("app.api.routes_analysis_rename.settings.agent_mode", True)

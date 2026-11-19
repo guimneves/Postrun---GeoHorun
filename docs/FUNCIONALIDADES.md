@@ -701,6 +701,7 @@ dos dois.
   - Troca a linha `Sample=` **nos bytes** do arquivo e do backup, sem mexer no resto.
   - Renomeia o arquivo trocando o código da amostra; data, extra e réplica ficam.
   - A biblioteca vem do RE7S, com filtro por grupo e subgrupo.
+  - Cada análise pode ir para uma amostra diferente no mesmo lote: marque as análises e toque na amostra; sem nenhuma marcada, ela vai para as que ainda não têm. A API aceita `assignments` (token → amostra) além do formato antigo (`tokens` + `library_sample_id`).
 - **Nomes:** `lib/rockevalName.ts` e `RockEvalNameHint.tsx` avisam de caracteres que o Rock-Eval não aceita.
 - **Requisito:** a pasta `jobs` precisa de `"mode": "read-write"` no `config.json` do Agente.
 

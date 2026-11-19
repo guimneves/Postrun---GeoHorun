@@ -348,14 +348,23 @@ def move_batch(payload: MoveBatchIn, user: AdminUser, session: SessionDep):
 # Pedido do usuário (2026-10-20): "A pessoa cadastrou uma amostra na
 # biblioteca com o nome errado, foi para o B00 errado" — troca a amostra
 # (só por uma da biblioteca) em várias análises de uma vez, sobretudo as
-# réplicas. Regras em `app/modules/b00_sample.py`.
+# réplicas. Regras em `app/modules/b00_sample.py`. Desde 2026-11-19 ("quero
+# que dê para trocar para diferentes amostras ao mesmo tempo"), cada análise
+# pode ir para uma amostra diferente no mesmo lote (`assignments`).
 
 CHANGE_SAMPLE_MAX = 200
 
 
-class ChangeSampleIn(BaseModel):
-    tokens: list[str]
+class ChangeSampleAssignment(BaseModel):
+    token: str
     library_sample_id: int
+
+
+class ChangeSampleIn(BaseModel):
+    # uma amostra para todas (tokens + library_sample_id) ou uma por análise (assignments)
+    tokens: list[str] = []
+    library_sample_id: int | None = None
+    assignments: list[ChangeSampleAssignment] = []
     dry_run: bool = False
 
 
@@ -369,12 +378,16 @@ class ChangeSampleItemOut(BaseModel):
     status: str
     renumbered: bool = False  # a réplica mudou (o nome com a réplica antiga já existia)
     error: str | None = None
+    # amostra certa desta análise (no lote podem ser várias)
+    library_sample_id: int | None = None
+    code: str | None = None
 
 
 class ChangeSampleOut(BaseModel):
-    library_sample_id: int
-    code: str
-    name: str
+    # preenchidos quando o lote inteiro vai para a mesma amostra
+    library_sample_id: int | None = None
+    code: str | None = None
+    name: str | None = None
     dry_run: bool
     done: int
     failed: int
@@ -430,19 +443,31 @@ def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep)
     """Troca a amostra de várias análises: `Sample=` dentro do `.B00` (e do
     `.B00~`) e o código no nome do arquivo. Primeiro grava o conteúdo (se o
     equipamento recusar, nada muda), depois renomeia (mesmas regras do
-    renomear). Refazer é seguro: o que já estiver certo é pulado."""
-    try:
-        lib = re7s_link.library_sample(payload.library_sample_id)
-    except re7s_link.Re7sUnavailable as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
-    if lib is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Amostra não encontrada na biblioteca")
-    code = lib.code
-    tokens = list(dict.fromkeys(t for t in payload.tokens if t))
+    renomear). Cada análise pode ir para uma amostra diferente
+    (`assignments`). Refazer é seguro: o que já estiver certo é pulado."""
+    wanted: dict[str, int] = {}  # token → id da amostra certa
+    if payload.assignments:
+        for a in payload.assignments:
+            if a.token:
+                wanted[a.token] = a.library_sample_id  # repetida: vale a última
+    elif payload.library_sample_id is not None:
+        wanted = {t: payload.library_sample_id for t in payload.tokens if t}
+    else:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Escolha a amostra certa.")
+    tokens = list(wanted)
     if not tokens:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Selecione ao menos uma análise.")
     if len(tokens) > CHANGE_SAMPLE_MAX:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"No máximo {CHANGE_SAMPLE_MAX} análises por vez.")
+    libs: dict[int, object] = {}
+    for sample_id in dict.fromkeys(wanted.values()):
+        try:
+            lib = re7s_link.library_sample(sample_id)
+        except re7s_link.Re7sUnavailable as exc:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+        if lib is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"Amostra {sample_id} não encontrada na biblioteca")
+        libs[sample_id] = lib
 
     def order(t: str):
         try:
@@ -453,15 +478,27 @@ def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep)
         return (m.group(1) + m.group(2), int(m.group(3))) if m else (name, 0)
 
     items: list[ChangeSampleItemOut] = []
-    reserved: set[str] = set()  # nomes já tomados por outra análise deste lote
+    # nomes já tomados por outra análise deste lote — inclusive os nomes ATUAIS
+    # das análises do lote: com amostras diferentes, uma pode querer o nome que
+    # a outra ainda tem; nunca reaproveitar deixa a prévia igual ao que acontece
+    reserved: set[str] = set()
+    for t in tokens:
+        try:
+            reserved.add(ar.split_token(t).name)
+        except ar.RenameError:
+            pass
     stopped: str | None = None
     for token in sorted(tokens, key=order):  # réplicas em ordem: _1, _2, _3
+        lib = libs[wanted[token]]
+        code = lib.code
         try:
             current = ar.split_token(token)
         except ar.RenameError as exc:
-            items.append(ChangeSampleItemOut(token=token, analysis_name=token, status="failed", error=str(exc)))
+            items.append(ChangeSampleItemOut(token=token, analysis_name=token, status="failed", error=str(exc),
+                                             library_sample_id=lib.id, code=code))
             continue
-        item = ChangeSampleItemOut(token=token, analysis_name=current.name, status="failed")
+        item = ChangeSampleItemOut(token=token, analysis_name=current.name, status="failed",
+                                   library_sample_id=lib.id, code=code)
         items.append(item)
         if stopped is not None:
             item.status, item.error = "skipped", f"Não tentada: {stopped}"
@@ -482,7 +519,7 @@ def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep)
                     b00_sample.split_name(current.name, old_sample)
             new_name = b00_sample.build_name(date, code, tail, replica)
             if new_name != current.name:
-                while _name_taken(session, new_name) or new_name in reserved:
+                while _name_taken(session, new_name) or (new_name in reserved and new_name != current.name):
                     replica += 1
                     item.renumbered = True
                     if replica > b00_sample.MAX_REPLICA:
@@ -566,5 +603,6 @@ def change_sample(payload: ChangeSampleIn, user: AdminUser, session: SessionDep)
     counts = {k: sum(1 for i in items if i.status == k) for k in ("done", "failed", "skipped")}
     if not payload.dry_run and counts["done"]:
         postrun_scan.invalidate_all()
-    return ChangeSampleOut(library_sample_id=lib.id, code=code, name=lib.name, dry_run=payload.dry_run,
-                           items=items, **counts)
+    single = next(iter(libs.values())) if len(libs) == 1 else None
+    return ChangeSampleOut(library_sample_id=single.id if single else None, code=single.code if single else None,
+                           name=single.name if single else None, dry_run=payload.dry_run, items=items, **counts)
